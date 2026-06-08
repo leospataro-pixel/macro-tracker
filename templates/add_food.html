@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block content %}
+
+<p class="page-header">🥗 Nuevo Alimento</p>
+<p class="text-muted small mb-3">Introduce los valores por cada 100 g</p>
+
+<form method="POST" action="{{ url_for('add_food') }}">
+  <div class="card shadow-sm mb-3">
+    <div class="card-body">
+
+      <div class="mb-3">
+        <label class="form-label fw-semibold">Nombre del alimento</label>
+        <input type="text" name="name" class="form-control"
+               placeholder="ej. Pechuga de pavo" required autofocus>
+      </div>
+
+      <div class="row g-3">
+        <div class="col-6">
+          <label class="form-label">🔥 Calorías (kcal)</label>
+          <input type="number" name="calories" class="form-control"
+                 placeholder="0" min="0" step="any" required>
+        </div>
+        <div class="col-6">
+          <label class="form-label">💪 Proteínas (g)</label>
+          <input type="number" name="protein" class="form-control"
+                 placeholder="0" min="0" step="any" required>
+        </div>
+        <div class="col-6">
+          <label class="form-label">🌾 Carbohidratos (g)</label>
+          <input type="number" name="carbs" class="form-control"
+                 placeholder="0" min="0" step="any" required>
+        </div>
+        <div class="col-6">
+          <label class="form-label">🥑 Grasas (g)</label>
+          <input type="number" name="fat" class="form-control"
+                 placeholder="0" min="0" step="any" required>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <button type="submit" class="btn btn-success w-100 btn-lg" style="border-radius:12px">
+    <i class="bi bi-plus-circle-fill"></i> Añadir alimento
+  </button>
+</form>
+
+{% endblock %}

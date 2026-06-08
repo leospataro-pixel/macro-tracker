@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block content %}
+
+<p class="page-header">➕ Registrar Comida</p>
+
+<form method="POST" action="{{ url_for('log_meal') }}" id="log-form">
+
+  <!-- Food selector with search -->
+  <div class="mb-3">
+    <label class="form-label fw-semibold">Alimento</label>
+    <input type="text" id="food-search" class="form-control mb-2" placeholder="🔍 Buscar alimento...">
+    <select name="food_id" id="food-select" class="form-select" size="6" required
+            style="height:auto;border-radius:12px">
+      {% for food in foods %}
+      <option value="{{ food.id }}"
+              data-cal="{{ food.calories }}"
+              data-prot="{{ food.protein }}"
+              data-carbs="{{ food.carbs }}"
+              data-fat="{{ food.fat }}"
+              data-name="{{ food.name | lower }}">
+        {{ food.name }} — {{ food.calories }} kcal/100g
+      </option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <!-- Grams input -->
+  <div class="mb-3">
+    <label class="form-label fw-semibold">Cantidad (gramos)</label>
+    <input type="number" name="grams" id="grams-input" class="form-control form-control-lg"
+           placeholder="ej. 150" min="1" step="any" required
+           style="border-radius:12px;font-size:1.3rem;font-weight:600;text-align:center">
+  </div>
+
+  <!-- Live preview -->
+  <div class="card shadow-sm mb-3 d-none" id="preview">
+    <div class="card-header bg-success text-white fw-semibold py-2">
+      <i class="bi bi-eye"></i> Vista previa
+    </div>
+    <div class="card-body py-3">
+      <div class="row text-center g-0">
+        <div class="col-3 border-end">
+          <div class="fw-bold fs-5" id="prev-cal">0</div>
+          <small class="text-muted">kcal</small>
+        </div>
+        <div class="col-3 border-end">
+          <div class="fw-bold fs-5 text-info" id="prev-prot">0g</div>
+          <small class="text-muted">Prot.</small>
+        </div>
+        <div class="col-3 border-end">
+          <div class="fw-bold fs-5 text-success" id="prev-carbs">0g</div>
+          <small class="text-muted">Carbs.</small>
+        </div>
+        <div class="col-3">
+          <div class="fw-bold fs-5 text-secondary" id="prev-fat">0g</div>
+          <small class="text-muted">Grasas</small>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <button type="submit" class="btn btn-success w-100 btn-lg" style="border-radius:12px">
+    <i class="bi bi-check2-circle"></i> Registrar
+  </button>
+</form>
+
+<div class="text-center mt-3">
+  <a href="{{ url_for('add_food') }}" class="text-muted small">
+    <i class="bi bi-plus-circle"></i> El alimento no está en la lista
+  </a>
+</div>
+
+<script>
+(function () {
+  const sel   = document.getElementById('food-select');
+  const grams = document.getElementById('grams-input');
+  const srch  = document.getElementById('food-search');
+  const card  = document.getElementById('preview');
+  const allOpts = Array.from(sel.options);
+
+  function round1(n) { return Math.round(n * 10) / 10; }
+
+  function updatePreview() {
+    const g = parseFloat(grams.value) || 0;
+    const opt = sel.options[sel.selectedIndex];
+    if (!opt || !opt.value || g <= 0) { card.classList.add('d-none'); return; }
+    const f = g / 100;
+    document.getElementById('prev-cal').textContent  = round1(parseFloat(opt.dataset.cal)   * f);
+    document.getElementById('prev-prot').textContent = round1(parseFloat(opt.dataset.prot)  * f) + 'g';
+    document.getElementById('prev-carbs').textContent= round1(parseFloat(opt.dataset.carbs) * f) + 'g';
+    document.getElementById('prev-fat').textContent  = round1(parseFloat(opt.dataset.fat)   * f) + 'g';
+    card.classList.remove('d-none');
+  }
+
+  function filterFoods() {
+    const q = srch.value.toLowerCase().trim();
+    sel.innerHTML = '';
+    allOpts
+      .filter(o => !q || o.dataset.name.includes(q))
+      .forEach(o => sel.appendChild(o.cloneNode(true)));
+    if (sel.options.length) sel.selectedIndex = 0;
+    updatePreview();
+  }
+
+  srch.addEventListener('input', filterFoods);
+  sel.addEventListener('change', updatePreview);
+  grams.addEventListener('input', updatePreview);
+})();
+</script>
+{% endblock %}

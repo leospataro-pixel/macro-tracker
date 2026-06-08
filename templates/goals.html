@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block content %}
+
+<p class="page-header">⚙️ Metas Diarias</p>
+
+<form method="POST" action="{{ url_for('goals') }}">
+  <div class="card shadow-sm mb-3">
+    <div class="card-body">
+
+      <div class="mb-3">
+        <label class="form-label fw-semibold">🔥 Calorías diarias (kcal)</label>
+        <input type="number" name="calories" class="form-control form-control-lg"
+               value="{{ goals.calories }}" min="500" max="10000" step="any" required
+               style="font-size:1.4rem;font-weight:700;text-align:center;border-radius:12px">
+      </div>
+
+      <hr>
+
+      <div class="row g-3">
+        <div class="col-4">
+          <label class="form-label fw-semibold text-info">💪 Proteínas</label>
+          <input type="number" name="protein" class="form-control text-center"
+                 value="{{ goals.protein }}" min="0" step="any" required>
+          <small class="text-muted d-block text-center">gramos</small>
+        </div>
+        <div class="col-4">
+          <label class="form-label fw-semibold text-success">🌾 Carbs.</label>
+          <input type="number" name="carbs" class="form-control text-center"
+                 value="{{ goals.carbs }}" min="0" step="any" required>
+          <small class="text-muted d-block text-center">gramos</small>
+        </div>
+        <div class="col-4">
+          <label class="form-label fw-semibold text-secondary">🥑 Grasas</label>
+          <input type="number" name="fat" class="form-control text-center"
+                 value="{{ goals.fat }}" min="0" step="any" required>
+          <small class="text-muted d-block text-center">gramos</small>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Macro split reference -->
+  <div class="card shadow-sm mb-3 bg-light">
+    <div class="card-body py-2 px-3">
+      <p class="small fw-semibold mb-1 text-muted">Referencia de distribución</p>
+      <div class="small text-muted">
+        Proteínas: {{ (goals.protein * 4) | int }} kcal ·
+        Carbs.: {{ (goals.carbs * 4) | int }} kcal ·
+        Grasas: {{ (goals.fat * 9) | int }} kcal
+      </div>
+    </div>
+  </div>
+
+  <button type="submit" class="btn btn-success w-100 btn-lg" style="border-radius:12px">
+    <i class="bi bi-check2-circle"></i> Guardar metas
+  </button>
+</form>
+
+{% endblock %}

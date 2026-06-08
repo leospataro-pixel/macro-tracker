@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <p class="page-header mb-0">🗃️ Alimentos <span class="text-muted fw-normal" style="font-size:.8rem">({{ foods | length }})</span></p>
+  <a href="{{ url_for('add_food') }}" class="btn btn-success btn-sm px-3">
+    <i class="bi bi-plus"></i> Nuevo
+  </a>
+</div>
+
+<!-- Search -->
+<input type="text" id="food-search" class="form-control mb-3" placeholder="🔍 Buscar...">
+
+{% if foods %}
+  <div id="food-list">
+  {% for food in foods %}
+  <div class="card shadow-sm mb-2 food-item" data-name="{{ food.name | lower }}">
+    <div class="card-body py-2 px-3">
+      <div class="d-flex justify-content-between align-items-center">
+        <div class="fw-semibold">{{ food.name }}</div>
+        <span class="badge bg-warning text-dark">{{ food.calories }} kcal</span>
+      </div>
+      <small class="text-muted">
+        💪 {{ food.protein }}g prot. &nbsp;·&nbsp;
+        🌾 {{ food.carbs }}g carbs. &nbsp;·&nbsp;
+        🥑 {{ food.fat }}g grasas
+        <span class="ms-1 opacity-50">/ 100g</span>
+      </small>
+    </div>
+  </div>
+  {% endfor %}
+  </div>
+  <p id="no-results" class="text-center text-muted py-4 d-none">Sin resultados</p>
+{% else %}
+  <div class="text-center text-muted py-5">
+    <i class="bi bi-database-x" style="font-size:2.5rem;opacity:.4"></i>
+    <p class="mt-2">Base de datos vacía</p>
+    <a href="{{ url_for('add_food') }}" class="btn btn-success btn-sm px-4">Añadir primer alimento</a>
+  </div>
+{% endif %}
+
+<script>
+document.getElementById('food-search').addEventListener('input', function () {
+  const q = this.value.toLowerCase().trim();
+  let visible = 0;
+  document.querySelectorAll('.food-item').forEach(el => {
+    const match = !q || el.dataset.name.includes(q);
+    el.style.display = match ? '' : 'none';
+    if (match) visible++;
+  });
+  document.getElementById('no-results').classList.toggle('d-none', visible > 0);
+});
+</script>
+{% endblock %}

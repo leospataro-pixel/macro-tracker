@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block content %}
+
+<p class="page-header">📅 {{ today }}</p>
+
+<!-- Macro progress cards -->
+{% for m in macros %}
+<div class="card shadow-sm mb-2">
+  <div class="card-body py-3 px-3">
+    <div class="d-flex justify-content-between align-items-baseline mb-1">
+      <span class="fw-semibold">{{ m.emoji }} {{ m.label }}</span>
+      <span class="small text-muted">
+        <strong class="text-dark fs-6">{{ m.current }}</strong> / {{ m.goal }} {{ m.unit }}
+      </span>
+    </div>
+    <div class="progress mb-1">
+      <div class="progress-bar bg-{{ m.bar_color }}" role="progressbar"
+           style="width: {{ m.pct }}%" aria-valuenow="{{ m.pct }}" aria-valuemin="0" aria-valuemax="100">
+      </div>
+    </div>
+    <div class="d-flex justify-content-between" style="font-size:0.75rem">
+      <span class="text-muted">{{ m.pct }}%</span>
+      {% if not m.over %}
+        <span class="text-success">+{{ m.remaining }} {{ m.unit }} restantes</span>
+      {% else %}
+        <span class="text-danger">{{ (m.remaining * -1) | round(1) }} {{ m.unit }} de más</span>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+<!-- Meals list -->
+<div class="d-flex justify-content-between align-items-center mt-4 mb-2">
+  <p class="fw-bold mb-0" style="font-size:0.95rem">Comidas de hoy</p>
+  <a href="{{ url_for('log_meal') }}" class="btn btn-success btn-sm px-3">
+    <i class="bi bi-plus"></i> Añadir
+  </a>
+</div>
+
+{% if meals %}
+  {% for meal in meals %}
+  <div class="card shadow-sm mb-2">
+    <div class="card-body py-2 px-3">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div class="fw-semibold lh-sm">{{ meal.food_name }}</div>
+          <small class="text-muted">🕐 {{ meal.time }} · {{ meal.grams | int }}g</small>
+        </div>
+        <div class="text-end">
+          <div class="fw-bold" style="color:#e67e22">{{ meal.calories }} kcal</div>
+          <small class="text-muted">P:{{ meal.protein }}g C:{{ meal.carbs }}g G:{{ meal.fat }}g</small>
+        </div>
+      </div>
+      <form method="POST" action="{{ url_for('delete_meal', meal_id=meal.id) }}"
+            onsubmit="return confirm('¿Eliminar esta comida?')">
+        <button type="submit" class="btn btn-link btn-sm text-danger p-0 mt-1" style="font-size:0.75rem">
+          <i class="bi bi-trash3"></i> Eliminar
+        </button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+{% else %}
+  <div class="card shadow-sm">
+    <div class="card-body text-center py-5 text-muted">
+      <i class="bi bi-egg-fried" style="font-size:2.5rem;opacity:.4"></i>
+      <p class="mt-2 mb-2">Sin comidas registradas hoy</p>
+      <a href="{{ url_for('log_meal') }}" class="btn btn-success btn-sm px-4">
+        <i class="bi bi-plus-circle"></i> Registrar primera comida
+      </a>
+    </div>
+  </div>
+{% endif %}
+
+{% endblock %}
