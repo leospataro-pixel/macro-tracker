@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+
+<p class="page-header">👨‍👩‍👧‍👦 Familia hoy</p>
+
+{% for m in members %}
+<div class="card shadow-sm mb-2">
+  <div class="card-body py-3 px-3">
+    <div class="d-flex align-items-center gap-2 mb-2">
+      <span class="avatar">{{ m.user.emoji }}</span>
+      <div class="flex-grow-1">
+        <div class="fw-semibold lh-1">{{ m.user.name }}</div>
+        <small class="text-muted">{{ GOALS[m.user.goal].emoji }} {{ GOALS[m.user.goal].label }}</small>
+      </div>
+      <div class="text-end small">
+        <div class="fw-bold">🏋️ {{ m.week_workouts }}/{{ m.week_target }}</div>
+        <small class="text-muted">semana</small>
+      </div>
+    </div>
+    <div class="d-flex justify-content-between small"><span>🔥 {{ m.totals.calories|n }} / {{ m.user.targets.calories|n }} kcal</span><span>{{ m.cal_pct }}%</span></div>
+    <div class="progress mb-1"><div class="progress-bar bg-success" style="width: {{ m.cal_pct }}%"></div></div>
+    <div class="d-flex justify-content-between small"><span>💪 {{ m.totals.protein|n }} / {{ m.user.targets.protein|n }} g prot.</span><span>{{ m.prot_pct }}%</span></div>
+    <div class="progress mb-2" style="height:6px"><div class="progress-bar bg-info" style="width: {{ m.prot_pct }}%"></div></div>
+    <div class="small">
+      {% for k in m.user.meals %}
+        <span class="me-1 {{ '' if k in m.logged_meals else 'opacity-25' }}" title="{{ MEAL_LABELS[k] }}">{{ MEAL_EMOJI[k] }}</span>
+      {% endfor %}
+      <span class="text-muted ms-1">comidas registradas</span>
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+<a href="{{ url_for('new_profile') }}" class="btn btn-outline-success w-100 mt-2">
+  <i class="bi bi-person-plus"></i> Añadir miembro
+</a>
+
+{% endblock %}

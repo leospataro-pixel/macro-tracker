@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block content %}
+
+<p class="page-header">🏋️ Entrenamiento</p>
+
+{% if routine %}
+<div class="card shadow-sm mb-3">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-start">
+      <div>
+        <div class="small text-muted">Rutina activa</div>
+        <div class="fw-bold">{{ routine.name }}</div>
+        <div class="small text-muted">{{ routine.days_per_week }} días/semana · {{ routine.equipment }}</div>
+      </div>
+      <a href="{{ url_for('routines') }}" class="btn btn-outline-secondary btn-sm">Cambiar</a>
+    </div>
+
+    <div class="mt-3">
+      <div class="d-flex justify-content-between small mb-1">
+        <span>Esta semana</span><span class="fw-semibold">{{ week_count }}/{{ routine.days_per_week }}</span>
+      </div>
+      <div class="progress"><div class="progress-bar bg-primary" style="width: {{ [week_count / routine.days_per_week * 100, 100]|min }}%"></div></div>
+    </div>
+
+    <div class="mt-3 p-2 rounded-3" style="background:#eef4ff">
+      <div class="small text-muted">{{ 'Hoy ya has entrenado ✅ · Siguiente:' if trained_today else 'Hoy toca' }}</div>
+      <div class="fw-bold">{{ routine.days[day_idx].name }}</div>
+      <div class="small text-muted">{{ routine.days[day_idx].exercises|map(attribute='name')|join(' · ')|truncate(90) }}</div>
+      <a href="{{ url_for('workout_session', day_idx=day_idx) }}" class="btn btn-primary w-100 mt-2">
+        <i class="bi bi-play-fill"></i> Empezar entreno
+      </a>
+    </div>
+
+    <details class="mt-2">
+      <summary class="small text-muted">Elegir otro día de la rutina</summary>
+      <div class="mt-2">
+        {% for d in routine.days %}
+          <a href="{{ url_for('workout_session', day_idx=loop.index0) }}" class="chip text-decoration-none">{{ d.name }}</a>
+        {% endfor %}
+      </div>
+    </details>
+    <div class="small text-muted mt-2"><i class="bi bi-heart-pulse"></i> {{ routine.cardio }}</div>
+  </div>
+</div>
+{% else %}
+<a href="{{ url_for('routines') }}" class="btn btn-primary w-100 mb-3">Elegir rutina</a>
+{% endif %}
+
+<!-- Cardio quick log -->
+<div class="card shadow-sm mb-3">
+  <div class="card-body">
+    <p class="fw-bold mb-2">🏃 Cardio / actividad</p>
+    <form method="POST" action="{{ url_for('log_cardio') }}" class="d-flex gap-2">
+      <select name="kind" class="form-select">
+        {% for c in cardio_types %}<option>{{ c }}</option>{% endfor %}
+      </select>
+      <input type="number" name="minutes" class="form-control" placeholder="min" min="1" style="max-width:80px" required inputmode="numeric">
+      <button class="btn btn-success"><i class="bi bi-plus-lg"></i></button>
+    </form>
+  </div>
+</div>
+
+<!-- History -->
+<p class="fw-bold mb-2">Historial</p>
+{% for w in workouts %}
+<div class="card shadow-sm mb-2">
+  <div class="card-body py-2 px-3">
+    <div class="d-flex justify-content-between">
+      <div>
+        <div class="fw-semibold small">{{ '🏋️' if w.type == 'fuerza' else '🏃' }} {{ w.day_name }}</div>
+        <small class="text-muted">{{ w.date }} · {{ w.time }}
+          {% if w.minutes %} · {{ w.minutes|n }} min{% endif %}
+          {% if w.kcal %} · ~{{ w.kcal }} kcal{% endif %}
+        </small>
+      </div>
+      <div class="text-end">
+        {% if w.type == 'fuerza' %}
+          <div class="small fw-bold">{{ w.exercises|length }} ejercicio{{ "s" if w.exercises|length != 1 }}</div>
+          <small class="text-muted">{{ '{:,}'.format(w.volume).replace(',', '.') }} kg vol.</small>
+        {% endif %}
+      </div>
+    </div>
+    {% if w.exercises %}
+    <details>
+      <summary class="small text-muted">Detalle</summary>
+      {% for e in w.exercises %}
+        <div class="small"><strong>{{ e.name }}:</strong>
+          {% for s in e.sets %}{{ s.kg|n }}kg×{{ s.reps|n }}{{ ', ' if not loop.last }}{% endfor %}
+        </div>
+      {% endfor %}
+      {% if w.notes %}<div class="small text-muted fst-italic mt-1">{{ w.notes }}</div>{% endif %}
+    </details>
+    {% endif %}
+    <form method="POST" action="{{ url_for('delete_workout', wid=w.id) }}" onsubmit="return confirm('¿Eliminar este entreno?')">
+      <button class="btn btn-link btn-sm text-danger p-0" style="font-size:.72rem"><i class="bi bi-trash3"></i> Eliminar</button>
+    </form>
+  </div>
+</div>
+{% else %}
+<div class="text-center text-muted small py-4">Aún no has registrado entrenos.</div>
+{% endfor %}
+
+{% endblock %}

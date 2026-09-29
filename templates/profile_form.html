@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+
+<p class="page-header">👋 Nuevo miembro de la familia</p>
+<p class="small text-muted">Con estos datos calculo automáticamente tus calorías y macros diarios.</p>
+
+<form method="POST" action="{{ url_for('new_profile') }}">
+  <div class="card shadow-sm mb-3">
+    <div class="card-body">
+      {% include "_profile_fields.html" %}
+    </div>
+  </div>
+  <button type="submit" class="btn btn-success w-100 btn-lg">
+    <i class="bi bi-check2-circle"></i> Crear perfil
+  </button>
+</form>
+
+{% endblock %}

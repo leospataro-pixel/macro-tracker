@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-2">
+  <p class="page-header mb-0">🍽️ Qué comer hoy</p>
+  <a href="{{ url_for('meal_plan', v=variant + 1) }}" class="btn btn-outline-success btn-sm">
+    <i class="bi bi-shuffle"></i> Otras opciones
+  </a>
+</div>
+
+<div class="card shadow-sm mb-3">
+  <div class="card-body py-2 px-3">
+    <div class="small text-muted mb-1">Te falta hoy para cumplir tus macros</div>
+    <div class="row text-center g-0">
+      <div class="col-3 border-end"><div class="fw-bold text-kcal">{{ plan.remaining.calories }}</div><small class="text-muted">kcal</small></div>
+      <div class="col-3 border-end"><div class="fw-bold text-info">{{ plan.remaining.protein }}g</div><small class="text-muted">Prot.</small></div>
+      <div class="col-3 border-end"><div class="fw-bold text-success">{{ plan.remaining.carbs }}g</div><small class="text-muted">Carbs.</small></div>
+      <div class="col-3"><div class="fw-bold text-secondary">{{ plan.remaining.fat }}g</div><small class="text-muted">Grasas</small></div>
+    </div>
+  </div>
+</div>
+
+{% for m in plan.meals %}
+<div class="card shadow-sm mb-2 {{ 'opacity-75' if m.done }}">
+  <div class="card-body py-2 px-3">
+    <div class="d-flex justify-content-between align-items-center">
+      <div class="fw-semibold">{{ MEAL_EMOJI[m.meal] }} {{ MEAL_LABELS[m.meal] }}</div>
+      {% if m.done %}
+        <span class="badge bg-success">✓ Registrado · {{ m.totals.calories|round|int }} kcal</span>
+      {% else %}
+        <small class="text-kcal fw-bold">{{ m.totals.calories|round|int }} kcal</small>
+      {% endif %}
+    </div>
+    {% if not m.done %}
+      <div class="small text-muted mb-1">{{ m.name }}</div>
+      <ul class="list-unstyled small mb-2">
+        {% for it in m.entries %}
+        <li class="d-flex justify-content-between border-bottom py-1">
+          <span>{{ it.food_name }}</span>
+          <span class="fw-semibold">{{ it.grams|n }} g
+            {% if it.units %}<span class="text-muted fw-normal">(~{{ it.units|n }} {{ it.unit_name }}{{ "s" if it.units > 1 and not it.unit_name.endswith("s") }})</span>{% endif %}
+          </span>
+        </li>
+        {% endfor %}
+      </ul>
+      <div class="d-flex justify-content-between align-items-center">
+        <small class="text-muted">P {{ m.totals.protein|n }} · C {{ m.totals.carbs|n }} · G {{ m.totals.fat|n }}</small>
+        <form method="POST" action="{{ url_for('log_plan_meal') }}">
+          <input type="hidden" name="meal" value="{{ m.meal }}">
+          <input type="hidden" name="v" value="{{ variant }}">
+          <input type="hidden" name="items" value='{{ m.entries|tojson }}'>
+          <button class="btn btn-success btn-sm"><i class="bi bi-check2"></i> Me lo he comido</button>
+        </form>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endfor %}
+
+<p class="small text-muted mt-3">
+  Las cantidades se recalculan con lo que ya has registrado hoy.
+  ¿Has comido otra cosa? <a href="{{ url_for('log_meal') }}">Regístrala</a> y el plan se ajusta.
+</p>
+
+{% endblock %}

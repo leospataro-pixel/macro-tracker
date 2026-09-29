@@ -1,3 +1,5 @@
-flask
-gunicorn
-rich
+flask>=3.0
+gunicorn>=22
+anthropic>=1.9
+pywebpush>=2.0
+tzdata

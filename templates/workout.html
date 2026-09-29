@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block content %}
+
+<p class="page-header mb-1">💪 {{ day.name }}</p>
+<p class="small text-muted">{{ routine.name }} · Apunta peso y repeticiones de cada serie. En gris, lo que hiciste la última vez.</p>
+
+<form method="POST" id="workout-form">
+  {% for e in day.exercises %}
+  {% set i = loop.index0 %}
+  {% set prev = last.get(e.name, []) %}
+  <div class="card shadow-sm mb-2">
+    <div class="card-body py-2 px-3">
+      <div class="d-flex justify-content-between align-items-baseline">
+        <div class="fw-semibold">{{ e.name }}</div>
+        <small class="text-muted">{{ e.sets }}×{{ e.reps }} · {{ e.rest }}</small>
+      </div>
+      {% for j in range(e.sets + 1) %}
+      {% set p = prev[j] if j < prev|length else None %}
+      <div class="d-flex align-items-center gap-2 mt-1 {{ 'extra-set d-none' if j == e.sets }}">
+        <span class="small text-muted text-nowrap" style="width:28px">S{{ j + 1 }}</span>
+        <input type="number" name="e{{ i }}_s{{ j }}_kg" class="form-control form-control-sm text-center"
+               placeholder="{{ p.kg|n ~ ' kg' if p else 'kg' }}" step="0.5" min="0" inputmode="decimal">
+        <span class="small text-muted">×</span>
+        <input type="number" name="e{{ i }}_s{{ j }}_reps" class="form-control form-control-sm text-center"
+               placeholder="{{ p.reps|n ~ ' reps' if p else 'reps' }}" min="0" inputmode="numeric">
+        <button type="button" class="btn btn-sm btn-outline-success copy-prev" title="Repetir lo anterior"
+                {% if not p %}disabled{% endif %} data-kg="{{ p.kg if p }}" data-reps="{{ p.reps if p }}">
+          <i class="bi bi-check2"></i>
+        </button>
+      </div>
+      {% endfor %}
+      <button type="button" class="btn btn-link btn-sm p-0 mt-1 add-set" style="font-size:.75rem">+ serie extra</button>
+    </div>
+  </div>
+  {% endfor %}
+
+  <div class="card shadow-sm mb-3">
+    <div class="card-body">
+      <div class="row g-2">
+        <div class="col-4">
+          <label class="form-label small">Duración</label>
+          <input type="number" name="minutes" class="form-control" placeholder="min" min="0" inputmode="numeric">
+        </div>
+        <div class="col-8">
+          <label class="form-label small">Notas</label>
+          <input type="text" name="notes" class="form-control" placeholder="Sensaciones, molestias…" maxlength="300">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <button type="submit" class="btn btn-primary w-100 btn-lg mb-4">
+    <i class="bi bi-check2-circle"></i> Terminar entreno
+  </button>
+</form>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // ✓ copies last session's values into the set
+  document.querySelectorAll('.copy-prev').forEach(b => b.addEventListener('click', () => {
+    const [kg, reps] = b.parentElement.querySelectorAll('input');
+    kg.value = b.dataset.kg; reps.value = b.dataset.reps;
+    b.classList.replace('btn-outline-success', 'btn-success');
+  }));
+  document.querySelectorAll('.add-set').forEach(b => b.addEventListener('click', () => {
+    b.parentElement.querySelector('.extra-set').classList.remove('d-none');
+    b.remove();
+  }));
+  // Keep a draft in case the phone locks or the page reloads mid-workout
+  const form = document.getElementById('workout-form');
+  const key = 'workout-draft-{{ current_user.id }}-{{ routine.id }}-{{ day_idx }}';
+  try {
+    const draft = JSON.parse(localStorage.getItem(key) || '{}');
+    Object.entries(draft).forEach(([n, v]) => { if (form.elements[n]) form.elements[n].value = v; });
+  } catch {}
+  form.addEventListener('input', () => {
+    const data = {};
+    new FormData(form).forEach((v, k) => { if (v) data[k] = v; });
+    try { localStorage.setItem(key, JSON.stringify(data)); } catch {}
+  });
+  form.addEventListener('submit', () => { try { localStorage.removeItem(key); } catch {} });
+</script>
+{% endblock %}

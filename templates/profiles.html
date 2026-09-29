@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+
+<p class="page-header text-center mt-3">¿Quién eres?</p>
+
+<div class="row g-3 justify-content-center">
+  {% for u in users %}
+  <div class="col-6 col-sm-4">
+    <form method="POST" action="{{ url_for('choose_profile', uid=u.id) }}">
+      <button class="card shadow-sm w-100 border-0 py-4 {{ 'border border-2 border-success' if current_user and current_user.id == u.id }}">
+        <div class="w-100 text-center">
+          <div style="font-size:2.6rem">{{ u.emoji }}</div>
+          <div class="fw-semibold mt-1">{{ u.name }}</div>
+          <small class="text-muted">{{ GOALS[u.goal].emoji }} {{ GOALS[u.goal].label }}</small>
+        </div>
+      </button>
+    </form>
+  </div>
+  {% endfor %}
+  <div class="col-6 col-sm-4">
+    <a href="{{ url_for('new_profile') }}" class="card shadow-sm w-100 py-4 text-decoration-none text-muted h-100 d-flex align-items-center justify-content-center">
+      <div class="text-center">
+        <i class="bi bi-person-plus" style="font-size:2.4rem"></i>
+        <div class="fw-semibold mt-1">Añadir miembro</div>
+      </div>
+    </a>
+  </div>
+</div>
+
+{% endblock %}

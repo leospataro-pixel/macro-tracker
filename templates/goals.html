@@ -3,6 +3,15 @@
 
 <p class="page-header">⚙️ Metas Diarias</p>
 
+<div class="card shadow-sm mb-3" style="background:#eef7f1">
+  <div class="card-body py-2 px-3 small">
+    <div class="fw-semibold mb-1">Recomendado para ti ({{ GOALS[current_user.goal].label|lower }})</div>
+    🔥 {{ suggested.calories }} kcal · 💪 {{ suggested.protein }}g · 🌾 {{ suggested.carbs }}g · 🥑 {{ suggested.fat }}g
+    <div class="text-muted" style="font-size:.75rem">Metabolismo basal {{ suggested.bmr }} kcal · Gasto diario {{ suggested.tdee }} kcal</div>
+    <button type="button" class="btn btn-sm btn-success mt-2" id="use-suggested">Usar recomendados</button>
+  </div>
+</div>
+
 <form method="POST" action="{{ url_for('goals') }}">
   <div class="card shadow-sm mb-3">
     <div class="card-body">
@@ -10,7 +19,7 @@
       <div class="mb-3">
         <label class="form-label fw-semibold">🔥 Calorías diarias (kcal)</label>
         <input type="number" name="calories" class="form-control form-control-lg"
-               value="{{ goals.calories }}" min="500" max="10000" step="any" required
+               value="{{ goals.calories|n }}" min="500" max="10000" step="any" required
                style="font-size:1.4rem;font-weight:700;text-align:center;border-radius:12px">
       </div>
 
@@ -20,19 +29,19 @@
         <div class="col-4">
           <label class="form-label fw-semibold text-info">💪 Proteínas</label>
           <input type="number" name="protein" class="form-control text-center"
-                 value="{{ goals.protein }}" min="0" step="any" required>
+                 value="{{ goals.protein|n }}" min="0" step="any" required>
           <small class="text-muted d-block text-center">gramos</small>
         </div>
         <div class="col-4">
           <label class="form-label fw-semibold text-success">🌾 Carbs.</label>
           <input type="number" name="carbs" class="form-control text-center"
-                 value="{{ goals.carbs }}" min="0" step="any" required>
+                 value="{{ goals.carbs|n }}" min="0" step="any" required>
           <small class="text-muted d-block text-center">gramos</small>
         </div>
         <div class="col-4">
           <label class="form-label fw-semibold text-secondary">🥑 Grasas</label>
           <input type="number" name="fat" class="form-control text-center"
-                 value="{{ goals.fat }}" min="0" step="any" required>
+                 value="{{ goals.fat|n }}" min="0" step="any" required>
           <small class="text-muted d-block text-center">gramos</small>
         </div>
       </div>
@@ -57,4 +66,13 @@
   </button>
 </form>
 
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('use-suggested').addEventListener('click', () => {
+  const s = {{ suggested|tojson }};
+  ['calories', 'protein', 'carbs', 'fat'].forEach(k => document.querySelector(`[name=${k}]`).value = s[k]);
+});
+</script>
 {% endblock %}
