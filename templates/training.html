@@ -40,6 +40,17 @@
 <a href="{{ url_for('routines') }}" class="btn btn-success w-100 mb-3">Elegir rutina</a>
 {% endif %}
 
+<a href="{{ url_for('stretching') }}" class="card mb-3 text-decoration-none">
+  <div class="card-body py-3 px-3 d-flex align-items-center gap-3">
+    <div class="avatar" style="width:44px;height:44px">🧘</div>
+    <div class="flex-grow-1">
+      <div class="fw-semibold text-body">Estiramientos</div>
+      <div class="small text-muted">Rutinas guiadas de 3-6 minutos con temporizador</div>
+    </div>
+    <i class="bi bi-chevron-right text-muted"></i>
+  </div>
+</a>
+
 <!-- Sessions per week -->
 {% set maxv = [weekly|map(attribute='fuerza')|max, 1]|max %}
 {% set cur = weekly[-1] %}

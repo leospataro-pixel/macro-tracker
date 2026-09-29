@@ -2,6 +2,7 @@
 
 import re
 import unicodedata
+from pathlib import Path
 from urllib.parse import quote_plus
 
 MUSCLES = {
@@ -393,9 +394,20 @@ def get(name: str) -> dict:
     """Exercise info for a routine exercise name (with safe fallback)."""
     base = ALIASES.get(name) or name
     info = EXERCISES.get(base) or EXERCISES.get(name) or e([], [], [], [])
-    return {**info, "name": name, "slug": slugify(name),
+    return {**info, "name": name, "slug": slugify(name), "img": image_for(name, base),
             "video_url": info.get("video") or
             "https://www.youtube.com/results?search_query=" + quote_plus(f"{base} técnica correcta")}
+
+
+IMG_DIR = Path(__file__).resolve().parent / "static" / "ex"
+
+
+def image_for(*names) -> str | None:
+    """static/ex/ prefix for the first name that has photos, e.g. 'ex/sentadilla'."""
+    for n in names:
+        if n and (IMG_DIR / f"{slugify(n)}_0.jpg").exists():
+            return f"ex/{slugify(n)}"
+    return None
 
 
 BY_SLUG = {slugify(n): n for n in list(EXERCISES) + list(ALIASES)}
@@ -434,3 +446,70 @@ def load_levels(load: dict) -> dict:
     """Weekly sets per muscle -> 0-3 intensity (0, <5, <10, >=10 sets)."""
     return map_levels({m: 0 if v <= 0 else 1 if v < 5 else 2 if v < 10 else 3
                        for m, v in load.items()})
+
+
+# Photo (start / end position) from the public-domain Free Exercise DB
+# (github.com/yuhonas/free-exercise-db). Files live in static/ex/<slug>_0.jpg / _1.jpg.
+IMAGE_SOURCES = {
+    "Press banca": "Barbell Bench Press - Medium Grip",
+    "Press inclinado mancuernas": "Incline Dumbbell Press",
+    "Aperturas en polea": "Cable Crossover",
+    "Flexiones (rodillas si hace falta)": "Pushups",
+    "Fondos": "Dips - Chest Version",
+    "Dominadas": "Pullups",
+    "Jalón al pecho": "Wide-Grip Lat Pulldown",
+    "Remo con barra": "Bent Over Barbell Row",
+    "Remo con mancuerna": "One-Arm Dumbbell Row",
+    "Remo en polea baja": "Seated Cable Rows",
+    "Remo invertido en mesa": "Inverted Row",
+    "Face pull": "Face Pull",
+    "Peso muerto rumano": "Romanian Deadlift",
+    "Superman": "Superman",
+    "Press militar": "Standing Military Press",
+    "Elevaciones laterales": "Side Lateral Raise",
+    "Flexiones pica": "Push-Ups - Close Triceps Position",
+    "Curl bíceps": "Dumbbell Bicep Curl",
+    "Curl martillo": "Hammer Curls",
+    "Extensión tríceps polea": "Triceps Pushdown - Rope Attachment",
+    "Press francés": "EZ-Bar Skullcrusher",
+    "Fondos en silla": "Bench Dips",
+    "Sentadilla": "Barbell Squat",
+    "Goblet squat": "Goblet Squat",
+    "Prensa de piernas": "Leg Press",
+    "Extensión de cuádriceps": "Leg Extensions",
+    "Curl femoral": "Lying Leg Curls",
+    "Zancadas": "Dumbbell Lunges",
+    "Sentadilla búlgara": "Split Squat with Dumbbells",
+    "Hip thrust": "Barbell Hip Thrust",
+    "Puente de glúteo": "Butt Lift (Bridge)",
+    "Peso muerto a una pierna": "Kettlebell One-Legged Deadlift",
+    "Elevación de gemelos": "Standing Calf Raises",
+    "Plancha": "Plank",
+    "Plancha lateral": "Side Bridge",
+    "Rueda abdominal": "Ab Roller",
+    "Elevación de piernas colgado": "Hanging Leg Raise",
+    "Crunch en polea": "Cable Crunch",
+    "Crunch bicicleta": "Air Bike",
+    "Pallof press": "Pallof Press",
+    "Mountain climbers": "Mountain Climbers",
+    "Burpees": "Freehand Jump Squat",
+    "Kettlebell swing": "One-Arm Kettlebell Swings",
+    "Jumping jacks": "Freehand Jump Squat",
+    "Caminata en cinta inclinada": "Walking, Treadmill",
+    "HIIT bici: 30s fuerte / 60s suave": "Bicycling, Stationary",
+    "Superserie curl + tríceps": "Dumbbell Bicep Curl",
+    # variants with their own photo
+    "Curl bíceps barra": "Barbell Curl",
+    "Dominadas lastradas": "Pullups",
+    "Press militar mancuernas": "Dumbbell Shoulder Press",
+    "Curl femoral sentado": "Seated Leg Curl",
+    "Sentadilla con peso corporal": "Bodyweight Squat",
+    "Zancadas caminando": "Bodyweight Walking Lunge",
+    "Zancadas alternas": "Dumbbell Lunges",
+    "Sentadilla búlgara en silla": "Split Squats",
+    "Fondos o press cerrado": "Dips - Triceps Version",
+}
+# Burpees / jumping jacks / pike push-ups have no matching photo; don't show a misleading one
+IMAGE_SOURCES.pop("Burpees")
+IMAGE_SOURCES.pop("Jumping jacks")
+IMAGE_SOURCES.pop("Flexiones pica")

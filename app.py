@@ -16,6 +16,7 @@ from flask import (Flask, abort, flash, g, jsonify, redirect, render_template,
 
 import ai
 import exercises as exlib
+import stretches as stlib
 import push
 import storage
 from nutrition import (ACTIVITY, DEFAULT_REMINDERS, MACRO_KEYS, MEAL_EMOJI, MEAL_KEYS,
@@ -797,7 +798,8 @@ def workout_session(day_idx):
             "volume": round(sum(s["kg"] * s["reps"] for e in exercises for s in e["sets"])),
         })
         save(storage.WORKOUTS_FILE, workouts)
-        flash(f"💪 ¡{day['name']} completado! {len(exercises)} ejercicios.", "success")
+        flash(f"💪 ¡{day['name']} completado! {len(exercises)} ejercicios. "
+              "Ahora 5 minutos de estiramientos 🧘", "success")
         return redirect(url_for("training"))
 
     infos = [exlib.get(e["name"]) for e in day["exercises"]]
@@ -805,6 +807,25 @@ def workout_session(day_idx):
                            infos=infos, levels=[exlib.exercise_levels(i) for i in infos],
                            day_levels=day_levels(day),
                            last=last_sets_by_exercise(workouts_for(user["id"])))
+
+
+@app.route("/estiramientos")
+def stretching():
+    routines = [{**r, "minutes": stlib.routine_minutes(r),
+                 "stretches": [stlib.BY_SLUG[s] for s in r["items"]]} for r in stlib.ROUTINES]
+    items = [{**s, "photo": exlib.image_for(s["slug"]),
+              "levels": exlib.exercise_levels(s)} for s in stlib.STRETCHES]
+    return render_template("stretching.html", routines=routines, items=items)
+
+
+@app.route("/estiramientos/<rid>")
+def stretch_session(rid):
+    routine = stlib.ROUTINES_BY_ID.get(rid)
+    if not routine:
+        abort(404)
+    steps = [{**s, "photo": exlib.image_for(s["slug"]), "levels": exlib.exercise_levels(s)}
+             for s in stlib.routine_steps(routine)]
+    return render_template("stretch_session.html", routine=routine, steps=steps)
 
 
 @app.route("/entreno/ejercicios")

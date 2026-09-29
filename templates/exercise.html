@@ -1,9 +1,10 @@
 {% extends "base.html" %}
-{% from "_muscles.html" import muscle_map, muscle_chips %}
+{% from "_muscles.html" import muscle_map, muscle_chips, ex_photo %}
 {% block content %}
 
 <a href="{{ request.referrer or url_for('exercise_library') }}" class="small text-muted text-decoration-none"><i class="bi bi-chevron-left"></i> Volver</a>
 <p class="page-header mt-2 mb-2">{{ info.name }}</p>
+{% if info.img %}<div class="mb-3">{{ ex_photo(info.img, 230) }}</div>{% endif %}
 <div class="mb-3">{{ muscle_chips(info, MUSCLES) }}</div>
 
 <div class="card mb-3">

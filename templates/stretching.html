@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% from "_muscles.html" import muscle_map, muscle_chips, ex_photo %}
+{% block content %}
+
+<div class="eyebrow">Flexibilidad</div>
+<p class="page-header">Estiramientos</p>
+
+<!-- Guided routines -->
+{% for r in routines %}
+<div class="card mb-2">
+  <div class="card-body p-3">
+    <div class="d-flex align-items-center gap-3">
+      <div class="avatar flex-shrink-0" style="width:48px;height:48px;font-size:1.5rem">{{ r.emoji }}</div>
+      <div class="flex-grow-1">
+        <div class="fw-bold">{{ r.name }}</div>
+        <div class="small text-muted">{{ r.stretches|length }} estiramientos · ~{{ r.minutes }} min</div>
+      </div>
+      <a href="{{ url_for('stretch_session', rid=r.id) }}" class="btn btn-success btn-sm px-3"><i class="bi bi-play-fill"></i> Empezar</a>
+    </div>
+    <div class="small text-muted mt-2">{{ r.description }}</div>
+  </div>
+</div>
+{% endfor %}
+
+<!-- All stretches -->
+<div class="eyebrow mt-4 mb-2">Todos los estiramientos</div>
+{% for s in items %}
+<details class="card mb-2">
+  <summary class="card-body p-2 d-flex align-items-center gap-3" style="list-style:none">
+    <div class="flex-shrink-0" style="width:72px">
+      {% if s.photo %}{{ ex_photo(s.photo, 72, 10) }}{% else %}<div class="surface-2 p-1">{{ muscle_map(s.levels, 64, labels=False) }}</div>{% endif %}
+    </div>
+    <div class="flex-grow-1">
+      <div class="fw-semibold small">{{ s.name }}</div>
+      <div class="text-muted" style="font-size:.72rem">{{ s.hold }} s{{ ' por lado' if s.per_side }} · {% for m in s.primary %}{{ MUSCLES[m] }}{{ ', ' if not loop.last }}{% endfor %}</div>
+    </div>
+    <i class="bi bi-chevron-down text-muted me-2"></i>
+  </summary>
+  <div class="px-3 pb-3">
+    {% if s.photo %}<div class="mb-2">{{ ex_photo(s.photo, 200) }}</div>{% endif %}
+    <div class="d-flex gap-3 align-items-start">
+      <div class="surface-2 p-1 flex-shrink-0" style="width:110px">{{ muscle_map(s.levels, 100) }}</div>
+      <div>
+        <div class="mb-1">{{ muscle_chips(s, MUSCLES) }}</div>
+        <ol class="small ps-3 mb-0">{% for st in s.steps %}<li class="mb-1">{{ st }}</li>{% endfor %}</ol>
+      </div>
+    </div>
+  </div>
+</details>
+{% endfor %}
+
+<p class="small text-muted mt-3">Estira sin dolor: tensión suave y respiración lenta. Nunca rebotes.</p>
+
+{% endblock %}

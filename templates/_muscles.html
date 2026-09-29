@@ -67,3 +67,11 @@
   {% for m in info.primary %}<span class="mchip mchip-primary">{{ MUSCLES[m] }}</span>{% endfor %}
   {% for m in info.secondary %}<span class="mchip">{{ MUSCLES[m] }}</span>{% endfor %}
 {% endmacro %}
+
+{# Start / end photos alternating like a short animation. prefix: 'ex/<slug>' #}
+{% macro ex_photo(prefix, height=180, rounded=14) %}
+<div class="ex-photo" style="height:{{ height }}px;border-radius:{{ rounded }}px">
+  <img src="{{ url_for('static', filename=prefix ~ '_0.jpg') }}" alt="" loading="lazy">
+  <img src="{{ url_for('static', filename=prefix ~ '_1.jpg') }}" alt="" loading="lazy" class="ex-photo-b">
+</div>
+{% endmacro %}

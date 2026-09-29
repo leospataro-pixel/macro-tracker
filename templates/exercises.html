@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_muscles.html" import muscle_map %}
+{% from "_muscles.html" import muscle_map, ex_photo %}
 {% block content %}
 
 <div class="eyebrow">Biblioteca</div>
@@ -17,7 +17,10 @@
   <div class="col-6">
     <a href="{{ url_for('exercise_detail', slug=it.slug) }}" class="card h-100 text-decoration-none">
       <div class="card-body p-2">
-        <div class="surface-2 p-1 mb-2">{{ muscle_map(it.levels, 96, labels=False) }}</div>
+        <div class="position-relative mb-2">
+          {% if it.img %}{{ ex_photo(it.img, 110, 12) }}{% else %}<div class="surface-2 p-1">{{ muscle_map(it.levels, 102, labels=False) }}</div>{% endif %}
+          {% if it.img %}<div class="position-absolute bottom-0 end-0 m-1 rounded-2 p-1" style="background:rgba(15,17,21,.85);width:46px">{{ muscle_map(it.levels, 30, labels=False) }}</div>{% endif %}
+        </div>
         <div class="small fw-semibold lh-sm text-body">{{ it.name }}</div>
         <div class="text-muted" style="font-size:.7rem">{% for m in it.primary %}{{ MUSCLES[m] }}{{ ' · ' if not loop.last }}{% endfor %}</div>
       </div>
