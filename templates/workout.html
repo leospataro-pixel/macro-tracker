@@ -1,85 +1,226 @@
 {% extends "base.html" %}
+{% from "_muscles.html" import muscle_map, muscle_chips, ex_photo %}
 {% block content %}
 
-<p class="page-header mb-1">💪 {{ day.name }}</p>
-<p class="small text-muted">{{ routine.name }} · Apunta peso y repeticiones de cada serie. En gris, lo que hiciste la última vez.</p>
+<div class="eyebrow">{{ routine.name }}</div>
+<p class="page-header mb-2">{{ day.name }}</p>
+
+<div class="card mb-3">
+  <div class="card-body py-3">
+    {{ muscle_map(day_levels, 150) }}
+    <div class="d-flex justify-content-center gap-3 mt-2 small text-muted">
+      <span><span class="legend-swatch" style="background:var(--m3)"></span> Principal</span>
+      <span><span class="legend-swatch" style="background:var(--m1)"></span> Secundario</span>
+    </div>
+  </div>
+</div>
+
+<p class="small text-muted">Pulsa <i class="bi bi-check-lg"></i> al terminar cada serie: se apunta y arranca el descanso. En gris, lo que hiciste la última vez.</p>
 
 <form method="POST" id="workout-form">
   {% for e in day.exercises %}
   {% set i = loop.index0 %}
+  {% set info = infos[i] %}
   {% set prev = last.get(e.name, []) %}
-  <div class="card shadow-sm mb-2">
-    <div class="card-body py-2 px-3">
-      <div class="d-flex justify-content-between align-items-baseline">
-        <div class="fw-semibold">{{ e.name }}</div>
-        <small class="text-muted">{{ e.sets }}×{{ e.reps }} · {{ e.rest }}</small>
+  <div class="card mb-3 exercise" data-rest="{{ e.rest }}">
+    <div class="card-body p-3">
+      <div class="d-flex gap-3">
+        <div class="flex-shrink-0" style="width:92px">
+          {% if info.img %}{{ ex_photo(info.img, 92, 12) }}
+          {% else %}<div class="surface-2 p-1">{{ muscle_map(levels[i], 84, labels=False) }}</div>{% endif %}
+        </div>
+        <div class="flex-grow-1 min-w-0">
+          <div class="fw-bold lh-sm">{{ e.name }}</div>
+          <div class="small text-muted mb-1">{{ e.sets }} × {{ e.reps }} · descanso {{ e.rest }}</div>
+          <div>{{ muscle_chips(info, MUSCLES) }}</div>
+        </div>
       </div>
+
+      {% if info.steps %}
+      <details class="mt-2">
+        <summary class="small fw-semibold text-success">Técnica y músculos</summary>
+        {% if info.img %}<div class="surface-2 p-2 mt-2">{{ muscle_map(levels[i], 130) }}</div>{% endif %}
+        <ol class="small mt-2 mb-2 ps-3">
+          {% for s in info.steps %}<li class="mb-1">{{ s }}</li>{% endfor %}
+        </ol>
+        {% if info.mistakes %}
+        <div class="small text-muted mb-1">Evita:</div>
+        <ul class="small mb-2 ps-3">
+          {% for m in info.mistakes %}<li class="text-danger"><span class="text-body">{{ m }}</span></li>{% endfor %}
+        </ul>
+        {% endif %}
+        <a href="{{ info.video_url }}" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm">
+          <i class="bi bi-youtube"></i> Ver vídeo de técnica
+        </a>
+      </details>
+      {% endif %}
+
+      <div class="mt-2">
       {% for j in range(e.sets + 1) %}
       {% set p = prev[j] if j < prev|length else None %}
-      <div class="d-flex align-items-center gap-2 mt-1 {{ 'extra-set d-none' if j == e.sets }}">
-        <span class="small text-muted text-nowrap" style="width:28px">S{{ j + 1 }}</span>
+      <div class="set-row d-flex align-items-center gap-2 mt-2 {{ 'extra-set d-none' if j == e.sets }}">
+        <span class="small text-muted text-nowrap" style="width:24px">S{{ j + 1 }}</span>
         <input type="number" name="e{{ i }}_s{{ j }}_kg" class="form-control form-control-sm text-center"
-               placeholder="{{ p.kg|n ~ ' kg' if p else 'kg' }}" step="0.5" min="0" inputmode="decimal">
+               placeholder="{{ p.kg|n ~ ' kg' if p else 'kg' }}" step="0.5" min="0" inputmode="decimal"
+               data-prev="{{ p.kg if p }}">
         <span class="small text-muted">×</span>
         <input type="number" name="e{{ i }}_s{{ j }}_reps" class="form-control form-control-sm text-center"
-               placeholder="{{ p.reps|n ~ ' reps' if p else 'reps' }}" min="0" inputmode="numeric">
-        <button type="button" class="btn btn-sm btn-outline-success copy-prev" title="Repetir lo anterior"
-                {% if not p %}disabled{% endif %} data-kg="{{ p.kg if p }}" data-reps="{{ p.reps if p }}">
-          <i class="bi bi-check2"></i>
+               placeholder="{{ p.reps|n ~ ' reps' if p else 'reps' }}" min="0" inputmode="numeric"
+               data-prev="{{ p.reps if p }}">
+        <button type="button" class="btn btn-sm btn-outline-success set-done" title="Serie hecha">
+          <i class="bi bi-check-lg"></i>
         </button>
       </div>
       {% endfor %}
-      <button type="button" class="btn btn-link btn-sm p-0 mt-1 add-set" style="font-size:.75rem">+ serie extra</button>
+      <button type="button" class="btn btn-link btn-sm p-0 mt-2 add-set text-muted" style="font-size:.75rem">+ serie extra</button>
+      </div>
     </div>
   </div>
   {% endfor %}
 
-  <div class="card shadow-sm mb-3">
+  <div class="card mb-3">
     <div class="card-body">
       <div class="row g-2">
         <div class="col-4">
-          <label class="form-label small">Duración</label>
-          <input type="number" name="minutes" class="form-control" placeholder="min" min="0" inputmode="numeric">
+          <label class="form-label small text-muted">Duración</label>
+          <input type="number" name="minutes" id="minutes" class="form-control" placeholder="min" min="0" inputmode="numeric">
         </div>
         <div class="col-8">
-          <label class="form-label small">Notas</label>
+          <label class="form-label small text-muted">Notas</label>
           <input type="text" name="notes" class="form-control" placeholder="Sensaciones, molestias…" maxlength="300">
         </div>
       </div>
     </div>
   </div>
 
-  <button type="submit" class="btn btn-primary w-100 btn-lg mb-4">
-    <i class="bi bi-check2-circle"></i> Terminar entreno
+  <button type="submit" class="btn btn-success w-100 btn-lg mb-4">
+    <i class="bi bi-flag-fill"></i> Terminar entreno
   </button>
 </form>
+
+<!-- Rest timer -->
+<div id="rest-timer" class="d-none" style="position:fixed;left:0;right:0;bottom:calc(64px + env(safe-area-inset-bottom));z-index:1000;padding:0 12px">
+  <div class="card mx-auto" style="max-width:420px;background:rgba(26,29,36,.97);backdrop-filter:blur(10px)">
+    <div class="card-body d-flex align-items-center gap-3 py-3">
+      <div class="position-relative flex-shrink-0">
+        <svg width="84" height="84" viewBox="0 0 84 84" style="transform:rotate(-90deg)">
+          <circle class="ring-track" cx="42" cy="42" r="36" fill="none" stroke-width="7"/>
+          <circle id="rest-ring" class="ring-val" cx="42" cy="42" r="36" fill="none" stroke="var(--accent)"
+                  stroke-width="7" stroke-dasharray="226.2" stroke-dashoffset="0" style="transition:stroke-dashoffset 1s linear"/>
+        </svg>
+        <div id="rest-time" class="position-absolute top-50 start-50 translate-middle fw-bold fs-4">0</div>
+      </div>
+      <div class="flex-grow-1">
+        <div class="eyebrow">Descanso</div>
+        <div class="small text-muted mb-2" id="rest-next">Siguiente serie</div>
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-outline-secondary btn-sm" id="rest-add">+15 s</button>
+          <button type="button" class="btn btn-success btn-sm" id="rest-skip">Saltar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
 {% endblock %}
 
 {% block scripts %}
 <script>
-  // ✓ copies last session's values into the set
-  document.querySelectorAll('.copy-prev').forEach(b => b.addEventListener('click', () => {
-    const [kg, reps] = b.parentElement.querySelectorAll('input');
-    kg.value = b.dataset.kg; reps.value = b.dataset.reps;
+(function () {
+  const form = document.getElementById('workout-form');
+  const key = 'workout-draft-{{ current_user.id }}-{{ routine.id }}-{{ day_idx }}';
+  const startKey = key + '-start';
+
+  // ── Draft: survive the phone locking mid-workout ──
+  function saveDraft() {
+    const data = {};
+    new FormData(form).forEach((v, k) => { if (v) data[k] = v; });
+    data.__done = [...form.querySelectorAll('.set-row.done')].map(r => r.querySelector('input').name);
+    try { localStorage.setItem(key, JSON.stringify(data)); } catch {}
+  }
+  try {
+    const draft = JSON.parse(localStorage.getItem(key) || '{}');
+    Object.entries(draft).forEach(([n, v]) => { if (form.elements[n] && n !== '__done') form.elements[n].value = v; });
+    (draft.__done || []).forEach(n => markDone(form.elements[n].closest('.set-row')));
+    if (!localStorage.getItem(startKey)) localStorage.setItem(startKey, Date.now());
+  } catch {}
+  form.addEventListener('input', saveDraft);
+  form.addEventListener('submit', () => {
+    const minutes = document.getElementById('minutes');
+    try {
+      const start = +localStorage.getItem(startKey);
+      if (!minutes.value && start) minutes.value = Math.round((Date.now() - start) / 60000);
+      localStorage.removeItem(key); localStorage.removeItem(startKey);
+    } catch {}
+  });
+
+  function markDone(row) {
+    row.classList.add('done');
+    const b = row.querySelector('.set-done');
     b.classList.replace('btn-outline-success', 'btn-success');
+  }
+
+  // ── ✓ : fill with last time's values if empty, mark done, start rest ──
+  document.querySelectorAll('.set-done').forEach(b => b.addEventListener('click', () => {
+    const row = b.closest('.set-row');
+    const [kg, reps] = row.querySelectorAll('input');
+    if (!kg.value && kg.dataset.prev) kg.value = kg.dataset.prev;
+    if (!reps.value && reps.dataset.prev) reps.value = reps.dataset.prev;
+    if (!reps.value) { reps.focus(); return; }
+    markDone(row);
+    saveDraft();
+    const card = row.closest('.exercise');
+    const next = [...card.querySelectorAll('.set-row:not(.d-none):not(.done)')][0];
+    startRest(parseRest(card.dataset.rest),
+              next ? 'Siguiente: serie ' + next.querySelector('span').textContent.slice(1)
+                   : 'Ejercicio completado 💪');
   }));
   document.querySelectorAll('.add-set').forEach(b => b.addEventListener('click', () => {
     b.parentElement.querySelector('.extra-set').classList.remove('d-none');
     b.remove();
   }));
-  // Keep a draft in case the phone locks or the page reloads mid-workout
-  const form = document.getElementById('workout-form');
-  const key = 'workout-draft-{{ current_user.id }}-{{ routine.id }}-{{ day_idx }}';
-  try {
-    const draft = JSON.parse(localStorage.getItem(key) || '{}');
-    Object.entries(draft).forEach(([n, v]) => { if (form.elements[n]) form.elements[n].value = v; });
-  } catch {}
-  form.addEventListener('input', () => {
-    const data = {};
-    new FormData(form).forEach((v, k) => { if (v) data[k] = v; });
-    try { localStorage.setItem(key, JSON.stringify(data)); } catch {}
-  });
-  form.addEventListener('submit', () => { try { localStorage.removeItem(key); } catch {} });
+
+  // ── Rest timer ──
+  function parseRest(txt) {
+    const m = /(\d+)\s*(min|s)/.exec(txt || '');
+    return m ? (+m[1]) * (m[2] === 'min' ? 60 : 1) : 0;
+  }
+  const box = document.getElementById('rest-timer');
+  const ring = document.getElementById('rest-ring');
+  const label = document.getElementById('rest-time');
+  const C = 226.2;
+  let total = 0, endAt = 0, tick = null;
+
+  function fmt(s) { return s >= 60 ? Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') : s; }
+  function render() {
+    const left = Math.max(0, Math.round((endAt - Date.now()) / 1000));
+    label.textContent = fmt(left);
+    ring.style.strokeDashoffset = C * (1 - left / total);
+    if (left <= 0) finish();
+  }
+  function startRest(seconds, nextText) {
+    if (!seconds) return;
+    total = seconds; endAt = Date.now() + seconds * 1000;
+    document.getElementById('rest-next').textContent = nextText;
+    box.classList.remove('d-none');
+    clearInterval(tick); render(); tick = setInterval(render, 250);
+  }
+  function finish() {
+    clearInterval(tick);
+    box.classList.add('d-none');
+    try { navigator.vibrate && navigator.vibrate([200, 100, 200]); } catch {}
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      [0, 0.25].forEach(t => {
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        o.frequency.value = 880; g.gain.value = 0.15;
+        o.connect(g); g.connect(ctx.destination);
+        o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + 0.15);
+      });
+    } catch {}
+  }
+  document.getElementById('rest-add').onclick = () => { endAt += 15000; total += 15; render(); };
+  document.getElementById('rest-skip').onclick = () => { clearInterval(tick); box.classList.add('d-none'); };
+})();
 </script>
 {% endblock %}

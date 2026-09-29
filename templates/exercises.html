@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% from "_muscles.html" import muscle_map, ex_photo %}
+{% block content %}
+
+<div class="eyebrow">Biblioteca</div>
+<p class="page-header">Ejercicios</p>
+
+<div class="d-flex gap-1 overflow-auto pb-2 mb-2" style="white-space:nowrap">
+  <a href="{{ url_for('exercise_library') }}" class="chip {{ 'bg-success' if not group }}">Todos</a>
+  {% for gname in groups %}
+    <a href="{{ url_for('exercise_library', grupo=gname) }}" class="chip {{ 'bg-success' if group == gname }}">{{ gname }}</a>
+  {% endfor %}
+</div>
+
+<div class="row g-2">
+  {% for it in items %}
+  <div class="col-6">
+    <a href="{{ url_for('exercise_detail', slug=it.slug) }}" class="card h-100 text-decoration-none">
+      <div class="card-body p-2">
+        <div class="position-relative mb-2">
+          {% if it.img %}{{ ex_photo(it.img, 110, 12) }}{% else %}<div class="surface-2 p-1">{{ muscle_map(it.levels, 102, labels=False) }}</div>{% endif %}
+          {% if it.img %}<div class="position-absolute bottom-0 end-0 m-1 rounded-2 p-1" style="background:rgba(15,17,21,.85);width:46px">{{ muscle_map(it.levels, 30, labels=False) }}</div>{% endif %}
+        </div>
+        <div class="small fw-semibold lh-sm text-body">{{ it.name }}</div>
+        <div class="text-muted" style="font-size:.7rem">{% for m in it.primary %}{{ MUSCLES[m] }}{{ ' · ' if not loop.last }}{% endfor %}</div>
+      </div>
+    </a>
+  </div>
+  {% endfor %}
+</div>
+
+{% endblock %}
