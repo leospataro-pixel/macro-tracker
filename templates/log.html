@@ -1,110 +1,369 @@
 {% extends "base.html" %}
 {% block content %}
 
-<p class="page-header">➕ Registrar Comida</p>
-
-<form method="POST" action="{{ url_for('log_meal') }}" id="log-form">
-
-  <!-- Food selector with search -->
-  <div class="mb-3">
-    <label class="form-label fw-semibold">Alimento</label>
-    <input type="text" id="food-search" class="form-control mb-2" placeholder="🔍 Buscar alimento...">
-    <select name="food_id" id="food-select" class="form-select" size="6" required
-            style="height:auto;border-radius:12px">
-      {% for food in foods %}
-      <option value="{{ food.id }}"
-              data-cal="{{ food.calories }}"
-              data-prot="{{ food.protein }}"
-              data-carbs="{{ food.carbs }}"
-              data-fat="{{ food.fat }}"
-              data-name="{{ food.name | lower }}">
-        {{ food.name }} — {{ food.calories }} kcal/100g
-      </option>
-      {% endfor %}
-    </select>
-  </div>
-
-  <!-- Grams input -->
-  <div class="mb-3">
-    <label class="form-label fw-semibold">Cantidad (gramos)</label>
-    <input type="number" name="grams" id="grams-input" class="form-control form-control-lg"
-           placeholder="ej. 150" min="1" step="any" required
-           style="border-radius:12px;font-size:1.3rem;font-weight:600;text-align:center">
-  </div>
-
-  <!-- Live preview -->
-  <div class="card shadow-sm mb-3 d-none" id="preview">
-    <div class="card-header bg-success text-white fw-semibold py-2">
-      <i class="bi bi-eye"></i> Vista previa
-    </div>
-    <div class="card-body py-3">
-      <div class="row text-center g-0">
-        <div class="col-3 border-end">
-          <div class="fw-bold fs-5" id="prev-cal">0</div>
-          <small class="text-muted">kcal</small>
-        </div>
-        <div class="col-3 border-end">
-          <div class="fw-bold fs-5 text-info" id="prev-prot">0g</div>
-          <small class="text-muted">Prot.</small>
-        </div>
-        <div class="col-3 border-end">
-          <div class="fw-bold fs-5 text-success" id="prev-carbs">0g</div>
-          <small class="text-muted">Carbs.</small>
-        </div>
-        <div class="col-3">
-          <div class="fw-bold fs-5 text-secondary" id="prev-fat">0g</div>
-          <small class="text-muted">Grasas</small>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <button type="submit" class="btn btn-success w-100 btn-lg" style="border-radius:12px">
-    <i class="bi bi-check2-circle"></i> Registrar
-  </button>
-</form>
-
-<div class="text-center mt-3">
-  <a href="{{ url_for('add_food') }}" class="text-muted small">
-    <i class="bi bi-plus-circle"></i> El alimento no está en la lista
-  </a>
+<!-- Meal type selector -->
+<div class="d-flex gap-1 overflow-auto pb-2 mb-2" style="white-space:nowrap">
+  {% for key, label, emoji, share, t in meal_types %}
+  <input type="radio" class="btn-check" name="meal-type" id="mt_{{ key }}" value="{{ key }}" {{ 'checked' if key == meal }}>
+  <label class="btn btn-outline-success btn-sm" for="mt_{{ key }}">{{ emoji }} {{ label }}</label>
+  {% endfor %}
 </div>
 
+{% if repeat_items %}
+<form method="POST" action="{{ url_for('repeat_meal') }}" class="mb-3">
+  <input type="hidden" name="meal" value="{{ meal }}">
+  <button class="btn btn-outline-primary w-100 text-start">
+    <i class="bi bi-arrow-repeat"></i> Repetir {{ MEAL_LABELS[meal]|lower }} de ayer
+    <small class="d-block text-muted" style="font-size:.75rem">
+      {{ repeat_items|map(attribute='food_name')|join(', ')|truncate(70) }} · {{ repeat_totals.calories|n }} kcal
+    </small>
+  </button>
+</form>
+{% endif %}
+
+<!-- Tabs -->
+<ul class="nav nav-pills nav-fill mb-3 bg-white rounded-3 p-1 shadow-sm" role="tablist">
+  <li class="nav-item"><button class="nav-link {{ 'active' if tab == 'foto' }}" data-bs-toggle="pill" data-bs-target="#tab-foto" type="button">📷 Foto</button></li>
+  <li class="nav-item"><button class="nav-link {{ 'active' if tab == 'frecuentes' }}" data-bs-toggle="pill" data-bs-target="#tab-freq" type="button">⭐ Frecuentes</button></li>
+  <li class="nav-item"><button class="nav-link {{ 'active' if tab == 'buscar' }}" data-bs-toggle="pill" data-bs-target="#tab-search" type="button">🔍 Buscar</button></li>
+</ul>
+
+<div class="tab-content">
+
+  <!-- ── Photo ── -->
+  <div class="tab-pane fade {{ 'show active' if tab == 'foto' }}" id="tab-foto">
+    {% if not ai_ready %}
+      <div class="alert alert-warning small">
+        Para analizar fotos hay que configurar <code>ANTHROPIC_API_KEY</code> en el servidor.
+      </div>
+    {% endif %}
+    <div id="photo-input">
+      <input type="file" accept="image/*" capture="environment" id="camera" class="d-none">
+      <input type="file" accept="image/*" id="gallery" class="d-none">
+      <div class="row g-2 mb-2">
+        <div class="col-8">
+          <button type="button" class="btn btn-success w-100 py-3" onclick="document.getElementById('camera').click()">
+            <i class="bi bi-camera-fill fs-4 d-block"></i>Hacer foto al plato
+          </button>
+        </div>
+        <div class="col-4">
+          <button type="button" class="btn btn-outline-success w-100 py-3 h-100" onclick="document.getElementById('gallery').click()">
+            <i class="bi bi-image fs-4 d-block"></i>Galería
+          </button>
+        </div>
+      </div>
+      <img id="preview-img" class="w-100 rounded-3 mb-2 d-none" style="max-height:240px;object-fit:cover" alt="">
+      <textarea id="description" class="form-control mb-2" rows="3"
+                placeholder="Opcional: añade detalles o describe la comida sin foto (ej: 2 huevos fritos con pan y un café con leche)"></textarea>
+      <button type="button" id="analyze-btn" class="btn btn-primary w-100 btn-lg">
+        <i class="bi bi-stars"></i> Calcular macros
+      </button>
+    </div>
+
+    <div id="analyzing" class="text-center py-4 d-none">
+      <div class="spinner-border text-success"></div>
+      <p class="small text-muted mt-2 mb-0">Analizando tu plato…</p>
+    </div>
+
+    <div id="ai-result" class="d-none">
+      <div class="card shadow-sm mb-2">
+        <div class="card-body py-2 px-3">
+          <div class="d-flex justify-content-between align-items-center">
+            <span class="fw-bold" id="dish-name"></span>
+            <span class="badge" id="confidence"></span>
+          </div>
+          <div class="small text-muted" id="ai-notes"></div>
+        </div>
+      </div>
+      <p class="small text-muted mb-1">Revisa los gramos si hace falta: los macros se ajustan solos.</p>
+      <div id="ai-items"></div>
+      <div class="card shadow-sm mb-3 bg-success text-white">
+        <div class="card-body py-2 px-3 d-flex justify-content-between">
+          <strong>Total</strong><span id="ai-total"></span>
+        </div>
+      </div>
+      <button type="button" id="save-ai" class="btn btn-success w-100 btn-lg mb-2">
+        <i class="bi bi-check2-circle"></i> Registrar en <span class="meal-label"></span>
+      </button>
+      <button type="button" id="retry-ai" class="btn btn-link w-100 text-muted small">Hacer otra foto</button>
+    </div>
+  </div>
+
+  <!-- ── Frequent ── -->
+  <div class="tab-pane fade {{ 'show active' if tab == 'frecuentes' }}" id="tab-freq">
+    {% if frequent %}
+      <p class="small text-muted mb-2">Un toque y queda registrado con la cantidad de la última vez.</p>
+      {% for f in frequent %}
+      <form method="POST" action="{{ url_for('log_meal') }}" class="d-inline">
+        <input type="hidden" name="food_id" value="{{ f.id }}">
+        <input type="hidden" name="grams" value="{{ f.last_grams }}">
+        <input type="hidden" name="meal" class="meal-field" value="{{ meal }}">
+        <input type="hidden" name="stay" value="frecuentes">
+        <button class="chip"><i class="bi bi-plus-circle text-success"></i>{{ f.name }} · {{ f.last_grams|n }}g</button>
+      </form>
+      {% endfor %}
+    {% else %}
+      <div class="text-center text-muted py-4 small">
+        <i class="bi bi-star" style="font-size:2rem;opacity:.4"></i>
+        <p class="mt-2">Aquí aparecerán los alimentos que más registras.</p>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- ── Search ── -->
+  <div class="tab-pane fade {{ 'show active' if tab == 'buscar' }}" id="tab-search">
+    <form method="POST" action="{{ url_for('log_meal') }}" id="log-form">
+      <input type="hidden" name="meal" class="meal-field" value="{{ meal }}">
+      <div class="mb-3">
+        <input type="search" id="food-search" class="form-control mb-2" placeholder="🔍 Buscar alimento...">
+        <select name="food_id" id="food-select" class="form-select" size="6" required
+                style="height:auto;border-radius:12px">
+          {% for food in foods %}
+          <option value="{{ food.id }}"
+                  data-cal="{{ food.calories }}" data-prot="{{ food.protein }}"
+                  data-carbs="{{ food.carbs }}" data-fat="{{ food.fat }}"
+                  data-unit="{{ food.unit_g or '' }}" data-unitname="{{ food.unit_name or '' }}"
+                  data-name="{{ food.name | lower }}">
+            {{ food.name }} — {{ food.calories|n }} kcal/100g
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="mb-2">
+        <label class="form-label fw-semibold">Cantidad (gramos)</label>
+        <input type="number" name="grams" id="grams-input" class="form-control form-control-lg"
+               placeholder="ej. 150" min="1" step="any" required inputmode="decimal"
+               style="border-radius:12px;font-size:1.3rem;font-weight:600;text-align:center">
+      </div>
+      <div class="mb-3" id="portions"></div>
+
+      <div class="card shadow-sm mb-3 d-none" id="preview">
+        <div class="card-body py-2">
+          <div class="row text-center g-0">
+            <div class="col-3 border-end"><div class="fw-bold fs-5 text-kcal" id="prev-cal">0</div><small class="text-muted">kcal</small></div>
+            <div class="col-3 border-end"><div class="fw-bold fs-5 text-info" id="prev-prot">0g</div><small class="text-muted">Prot.</small></div>
+            <div class="col-3 border-end"><div class="fw-bold fs-5 text-success" id="prev-carbs">0g</div><small class="text-muted">Carbs.</small></div>
+            <div class="col-3"><div class="fw-bold fs-5 text-secondary" id="prev-fat">0g</div><small class="text-muted">Grasas</small></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" name="stay" value="buscar" id="stay" checked>
+        <label class="form-check-label small" for="stay">Seguir añadiendo alimentos</label>
+      </div>
+      <button type="submit" class="btn btn-success w-100 btn-lg">
+        <i class="bi bi-check2-circle"></i> Registrar en <span class="meal-label"></span>
+      </button>
+    </form>
+
+    <div class="text-center mt-3">
+      <a href="{{ url_for('add_food') }}" class="text-muted small">
+        <i class="bi bi-plus-circle"></i> El alimento no está en la lista
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
 <script>
+const MEAL_LABELS = {{ MEAL_LABELS|tojson }};
+const r1 = n => Math.round(n * 10) / 10;
+
+// ── Meal type: keep every form in sync ──
+function currentMeal() { return document.querySelector('input[name=meal-type]:checked').value; }
+function syncMeal() {
+  const m = currentMeal();
+  document.querySelectorAll('.meal-field').forEach(i => i.value = m);
+  document.querySelectorAll('.meal-label').forEach(s => s.textContent = MEAL_LABELS[m].toLowerCase());
+}
+document.querySelectorAll('input[name=meal-type]').forEach(r => r.addEventListener('change', () => {
+  // reload so "repeat yesterday" and frequent foods match the meal
+  const tab = document.querySelector('.nav-link.active').dataset.bsTarget.replace('#tab-', '');
+  const tabs = {foto: 'foto', freq: 'frecuentes', search: 'buscar'};
+  location.href = `?comida=${currentMeal()}&tab=${tabs[tab]}`;
+}));
+syncMeal();
+document.querySelector('input[name=meal-type]:checked + label').scrollIntoView({inline: 'center', block: 'nearest'});
+
+// ── Search tab ──
 (function () {
-  const sel   = document.getElementById('food-select');
+  const sel = document.getElementById('food-select');
   const grams = document.getElementById('grams-input');
-  const srch  = document.getElementById('food-search');
-  const card  = document.getElementById('preview');
+  const srch = document.getElementById('food-search');
+  const card = document.getElementById('preview');
+  const portions = document.getElementById('portions');
   const allOpts = Array.from(sel.options);
 
-  function round1(n) { return Math.round(n * 10) / 10; }
-
+  function updatePortions() {
+    const opt = sel.options[sel.selectedIndex];
+    portions.innerHTML = '';
+    if (!opt) return;
+    const unit = parseFloat(opt.dataset.unit);
+    const choices = unit
+      ? [1, 2, 3].map(n => [`${n} ${opt.dataset.unitname}${n > 1 ? 's' : ''}`, n * unit])
+      : [50, 100, 150, 200, 250].map(g => [`${g}g`, g]);
+    choices.forEach(([label, g]) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'chip'; b.textContent = label;
+      b.onclick = () => { grams.value = r1(g); updatePreview(); };
+      portions.appendChild(b);
+    });
+  }
   function updatePreview() {
     const g = parseFloat(grams.value) || 0;
     const opt = sel.options[sel.selectedIndex];
     if (!opt || !opt.value || g <= 0) { card.classList.add('d-none'); return; }
     const f = g / 100;
-    document.getElementById('prev-cal').textContent  = round1(parseFloat(opt.dataset.cal)   * f);
-    document.getElementById('prev-prot').textContent = round1(parseFloat(opt.dataset.prot)  * f) + 'g';
-    document.getElementById('prev-carbs').textContent= round1(parseFloat(opt.dataset.carbs) * f) + 'g';
-    document.getElementById('prev-fat').textContent  = round1(parseFloat(opt.dataset.fat)   * f) + 'g';
+    document.getElementById('prev-cal').textContent = r1(opt.dataset.cal * f);
+    document.getElementById('prev-prot').textContent = r1(opt.dataset.prot * f) + 'g';
+    document.getElementById('prev-carbs').textContent = r1(opt.dataset.carbs * f) + 'g';
+    document.getElementById('prev-fat').textContent = r1(opt.dataset.fat * f) + 'g';
     card.classList.remove('d-none');
   }
-
   function filterFoods() {
-    const q = srch.value.toLowerCase().trim();
+    const q = srch.value.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
     sel.innerHTML = '';
     allOpts
-      .filter(o => !q || o.dataset.name.includes(q))
-      .forEach(o => sel.appendChild(o.cloneNode(true)));
+      .filter(o => !q || o.dataset.name.normalize('NFD').replace(/[̀-ͯ]/g, '').includes(q))
+      .forEach(o => sel.appendChild(o));
     if (sel.options.length) sel.selectedIndex = 0;
-    updatePreview();
+    updatePortions(); updatePreview();
+  }
+  srch.addEventListener('input', filterFoods);
+  sel.addEventListener('change', () => { updatePortions(); updatePreview(); });
+  grams.addEventListener('input', updatePreview);
+})();
+
+// ── Photo tab ──
+(function () {
+  let photoBlob = null, items = [];
+  const $ = id => document.getElementById(id);
+
+  function resize(file) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const max = 1280, s = Math.min(1, max / Math.max(img.width, img.height));
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        c.toBlob(b => b ? resolve(b) : reject(), 'image/jpeg', 0.85);
+      };
+      img.onerror = reject;
+      img.src = URL.createObjectURL(file);
+    });
   }
 
-  srch.addEventListener('input', filterFoods);
-  sel.addEventListener('change', updatePreview);
-  grams.addEventListener('input', updatePreview);
+  async function onFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    try { photoBlob = await resize(file); } catch { photoBlob = file; }
+    $('preview-img').src = URL.createObjectURL(photoBlob);
+    $('preview-img').classList.remove('d-none');
+    analyze();
+  }
+  $('camera').addEventListener('change', onFile);
+  $('gallery').addEventListener('change', onFile);
+  $('analyze-btn').addEventListener('click', analyze);
+
+  async function analyze() {
+    const desc = $('description').value.trim();
+    if (!photoBlob && !desc) { alert('Haz una foto o describe lo que has comido.'); return; }
+    const fd = new FormData();
+    if (photoBlob) fd.append('photo', photoBlob, 'plato.jpg');
+    fd.append('description', desc);
+    $('photo-input').classList.add('d-none');
+    $('analyzing').classList.remove('d-none');
+    try {
+      const res = await fetch('{{ url_for("analyze_photo") }}', {method: 'POST', body: fd});
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Error analizando la foto');
+      showResult(data);
+    } catch (err) {
+      alert(err.message);
+      $('photo-input').classList.remove('d-none');
+    } finally {
+      $('analyzing').classList.add('d-none');
+    }
+  }
+
+  function showResult(data) {
+    items = data.items.map(it => ({...it, base: {...it}}));
+    $('dish-name').textContent = data.dish;
+    const conf = $('confidence');
+    conf.textContent = 'Confianza ' + data.confidence;
+    conf.className = 'badge ' + ({alta: 'bg-success', media: 'bg-warning text-dark', baja: 'bg-danger'}[data.confidence] || 'bg-secondary');
+    $('ai-notes').textContent = data.notes || '';
+    renderItems();
+    $('ai-result').classList.remove('d-none');
+    if (!items.length) $('photo-input').classList.remove('d-none');
+  }
+
+  function renderItems() {
+    const box = $('ai-items');
+    box.innerHTML = '';
+    items.forEach((it, i) => {
+      const div = document.createElement('div');
+      div.className = 'card shadow-sm mb-2';
+      div.innerHTML = `
+        <div class="card-body py-2 px-3">
+          <div class="d-flex gap-2 align-items-center">
+            <input class="form-control form-control-sm fw-semibold border-0 px-0" value="">
+            <input type="number" class="form-control form-control-sm text-center" style="width:80px" min="1" inputmode="decimal">
+            <span class="small text-muted">g</span>
+            <button type="button" class="btn btn-link text-danger p-0"><i class="bi bi-x-circle"></i></button>
+          </div>
+          <small class="text-muted macros"></small>
+        </div>`;
+      const [name, grams] = div.querySelectorAll('input');
+      name.value = it.name; grams.value = it.grams;
+      name.oninput = () => it.name = name.value;
+      grams.oninput = () => {
+        const g = parseFloat(grams.value) || 0, f = g / it.base.grams;
+        it.grams = g;
+        ['calories', 'protein', 'carbs', 'fat'].forEach(k => it[k] = r1(it.base[k] * f));
+        paint();
+      };
+      div.querySelector('button').onclick = () => { items.splice(i, 1); renderItems(); };
+      const paint = () => {
+        div.querySelector('.macros').textContent =
+          `${it.calories} kcal · P ${it.protein}g · C ${it.carbs}g · G ${it.fat}g`;
+        total();
+      };
+      paint();
+      box.appendChild(div);
+    });
+    total();
+  }
+
+  function total() {
+    const t = {calories: 0, protein: 0, carbs: 0, fat: 0};
+    items.forEach(it => Object.keys(t).forEach(k => t[k] += it[k] || 0));
+    $('ai-total').textContent = `${r1(t.calories)} kcal · P ${r1(t.protein)} · C ${r1(t.carbs)} · G ${r1(t.fat)}`;
+  }
+
+  $('save-ai').addEventListener('click', async () => {
+    const btn = $('save-ai');
+    btn.disabled = true;
+    const res = await fetch('{{ url_for("save_photo_meal") }}', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({meal: currentMeal(), items: items.map(({base, ...it}) => it)}),
+    });
+    const data = await res.json();
+    if (res.ok) location.href = data.redirect;
+    else { alert(data.error); btn.disabled = false; }
+  });
+
+  $('retry-ai').addEventListener('click', () => {
+    photoBlob = null; items = [];
+    $('ai-result').classList.add('d-none');
+    $('preview-img').classList.add('d-none');
+    $('photo-input').classList.remove('d-none');
+    $('camera').value = ''; $('gallery').value = '';
+  });
 })();
 </script>
 {% endblock %}

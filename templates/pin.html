@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="text-center pt-5">
+  <div style="font-size:3rem">🔒</div>
+  <p class="page-header mt-2">PIN familiar</p>
+  <form method="POST" class="mx-auto" style="max-width:240px">
+    <input type="password" name="pin" inputmode="numeric" autocomplete="off" autofocus required
+           class="form-control form-control-lg text-center mb-3" style="letter-spacing:.4em">
+    <button class="btn btn-success w-100 btn-lg">Entrar</button>
+  </form>
+</div>
+{% endblock %}

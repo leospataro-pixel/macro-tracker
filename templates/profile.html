@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block content %}
+
+<p class="page-header">{{ user.emoji }} Perfil de {{ user.name }}</p>
+
+<!-- Targets summary -->
+<div class="card shadow-sm mb-3">
+  <div class="card-body py-3">
+    <div class="d-flex justify-content-between align-items-center">
+      <div>
+        <div class="small text-muted">{{ GOALS[user.goal].emoji }} {{ GOALS[user.goal].label }}</div>
+        <div class="fs-4 fw-bold">{{ user.targets.calories|n }} <small class="fs-6 text-muted">kcal/día</small></div>
+        <div class="small text-muted">P {{ user.targets.protein|n }}g · C {{ user.targets.carbs|n }}g · G {{ user.targets.fat|n }}g</div>
+      </div>
+      <a href="{{ url_for('goals') }}" class="btn btn-outline-secondary btn-sm">Ajustar</a>
+    </div>
+    {% if not user.auto_targets %}
+    <div class="small text-warning mt-2"><i class="bi bi-pencil"></i> Metas manuales (no se recalculan al cambiar el peso)</div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Quick links -->
+<div class="list-group shadow-sm mb-3" style="border-radius:14px">
+  <a href="{{ url_for('reminders') }}" class="list-group-item list-group-item-action py-3">
+    <i class="bi bi-bell-fill text-warning me-2"></i> Comidas y recordatorios
+  </a>
+  <a href="{{ url_for('list_foods') }}" class="list-group-item list-group-item-action py-3">
+    <i class="bi bi-database-fill text-success me-2"></i> Base de alimentos
+  </a>
+  <a href="{{ url_for('history') }}" class="list-group-item list-group-item-action py-3">
+    <i class="bi bi-calendar3 text-primary me-2"></i> Historial de comidas
+  </a>
+  <a href="{{ url_for('family') }}" class="list-group-item list-group-item-action py-3">
+    <i class="bi bi-people-fill text-info me-2"></i> Resumen familiar
+  </a>
+</div>
+
+<!-- Weight -->
+<div class="card shadow-sm mb-3">
+  <div class="card-body">
+    <p class="fw-bold mb-2">⚖️ Peso</p>
+    <form method="POST" action="{{ url_for('add_weight') }}" class="d-flex gap-2 mb-2">
+      <input type="number" name="kg" step="0.1" min="20" max="300" class="form-control"
+             placeholder="Peso de hoy (kg)" required>
+      <button class="btn btn-success px-3">Guardar</button>
+    </form>
+    {% for w in weights %}
+      {% set prev = weights[loop.index] if loop.index < weights|length else None %}
+      <div class="d-flex justify-content-between small border-bottom py-1">
+        <span class="text-muted">{{ w.date }}</span>
+        <span><strong>{{ w.kg|n }} kg</strong>
+          {% if prev %}
+            {% set d = w.kg - prev.kg %}
+            <span class="{{ 'text-success' if (d < 0 and user.goal == 'lose') or (d > 0 and user.goal == 'gain') else 'text-muted' }}">
+              ({{ '+' if d > 0 }}{{ d|n }})
+            </span>
+          {% endif %}
+        </span>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Edit data -->
+<div class="card shadow-sm mb-3">
+  <div class="card-body">
+    <p class="fw-bold mb-2">✏️ Mis datos</p>
+    <form method="POST" action="{{ url_for('profile') }}">
+      {% include "_profile_fields.html" %}
+      <button type="submit" class="btn btn-success w-100">
+        <i class="bi bi-check2-circle"></i> Guardar y recalcular macros
+      </button>
+    </form>
+  </div>
+</div>
+
+<form method="POST" action="{{ url_for('delete_profile', uid=user.id) }}"
+      onsubmit="return confirm('¿Eliminar el perfil de {{ user.name }} y todos sus datos?')" class="text-center mb-4">
+  <button class="btn btn-link text-danger small"><i class="bi bi-trash3"></i> Eliminar perfil</button>
+</form>
+
+{% endblock %}

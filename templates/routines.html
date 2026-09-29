@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block content %}
+
+<p class="page-header">📋 Rutinas para {{ GOALS[current_user.goal].label|lower }}</p>
+
+<div class="card shadow-sm mb-3" style="background:#fffbea">
+  <div class="card-body py-2 px-3">
+    <p class="small fw-bold mb-1">{{ GOALS[current_user.goal].emoji }} Claves de tu objetivo</p>
+    <ul class="small mb-0 ps-3">
+      {% for t in tips %}<li>{{ t }}</li>{% endfor %}
+    </ul>
+  </div>
+</div>
+
+{% for r in routines %}
+{% set fits = current_user.goal in r.goals %}
+<div class="card shadow-sm mb-2 {{ 'border border-2 border-primary' if current_user.routine_id == r.id }}">
+  <div class="card-body py-3 px-3">
+    <div class="d-flex justify-content-between align-items-start">
+      <div>
+        <div class="fw-bold">{{ r.name }}
+          {% if loop.first %}<span class="badge bg-success ms-1">Recomendada</span>{% endif %}
+          {% if not fits %}<span class="badge bg-light text-muted ms-1">Otro objetivo</span>{% endif %}
+        </div>
+        <small class="text-muted">{{ r.days_per_week }} días · {{ LEVELS[r.level] }} · {{ r.equipment }}</small>
+      </div>
+    </div>
+    <p class="small mt-2 mb-2">{{ r.description }}</p>
+    <details class="mb-2">
+      <summary class="small text-muted">Ver ejercicios</summary>
+      {% for d in r.days %}
+        <div class="small mt-2 fw-semibold">{{ d.name }}</div>
+        <ul class="small mb-1 ps-3">
+          {% for e in d.exercises %}<li>{{ e.name }} — {{ e.sets }}×{{ e.reps }} <span class="text-muted">({{ e.rest }})</span></li>{% endfor %}
+        </ul>
+      {% endfor %}
+      <div class="small text-muted"><i class="bi bi-heart-pulse"></i> {{ r.cardio }}</div>
+    </details>
+    {% if current_user.routine_id == r.id %}
+      <button class="btn btn-primary btn-sm w-100" disabled>✓ Rutina activa</button>
+    {% else %}
+      <form method="POST" action="{{ url_for('choose_routine', rid=r.id) }}">
+        <button class="btn btn-outline-primary btn-sm w-100">Usar esta rutina</button>
+      </form>
+    {% endif %}
+  </div>
+</div>
+{% endfor %}
+
+{% endblock %}

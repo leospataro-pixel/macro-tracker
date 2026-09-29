@@ -1,0 +1,19 @@
+{
+  "name": "Macros Familia",
+  "short_name": "Macros",
+  "description": "Macros, comidas y entrenamientos de toda la familia",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f0f2f5",
+  "theme_color": "#198754",
+  "lang": "es",
+  "icons": [
+    {"src": "/static/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+    {"src": "/static/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+  ],
+  "shortcuts": [
+    {"name": "Registrar comida", "url": "/registrar", "icons": [{"src": "/static/icon-192.png", "sizes": "192x192"}]},
+    {"name": "Qué comer hoy", "url": "/plan", "icons": [{"src": "/static/icon-192.png", "sizes": "192x192"}]}
+  ]
+}

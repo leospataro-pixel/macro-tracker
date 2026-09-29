@@ -1,76 +1,125 @@
 {% extends "base.html" %}
 {% block content %}
 
-<p class="page-header">📅 {{ today }}</p>
+{% if not push_enabled %}
+<div class="card shadow-sm mb-3 border-start border-4 border-warning d-none" id="push-banner">
+  <div class="card-body py-2 px-3 d-flex align-items-center gap-2">
+    <i class="bi bi-bell-fill text-warning fs-4"></i>
+    <div class="small flex-grow-1">Activa los recordatorios para no olvidarte de registrar tus comidas.</div>
+    <a href="{{ url_for('reminders') }}" class="btn btn-warning btn-sm">Activar</a>
+  </div>
+</div>
+{% endif %}
 
-<!-- Macro progress cards -->
-{% for m in macros %}
+<!-- Calories summary -->
+{% set cal = macros[0] %}
 <div class="card shadow-sm mb-2">
   <div class="card-body py-3 px-3">
-    <div class="d-flex justify-content-between align-items-baseline mb-1">
-      <span class="fw-semibold">{{ m.emoji }} {{ m.label }}</span>
-      <span class="small text-muted">
-        <strong class="text-dark fs-6">{{ m.current }}</strong> / {{ m.goal }} {{ m.unit }}
-      </span>
-    </div>
-    <div class="progress mb-1">
-      <div class="progress-bar bg-{{ m.bar_color }}" role="progressbar"
-           style="width: {{ m.pct }}%" aria-valuenow="{{ m.pct }}" aria-valuemin="0" aria-valuemax="100">
+    <div class="d-flex justify-content-between align-items-center">
+      <div>
+        <div class="small text-muted">Hoy · {{ today }}</div>
+        <div class="fs-3 fw-bold lh-1 mt-1">{{ cal.current|round|int }} <small class="fs-6 text-muted fw-normal">/ {{ cal.goal|round|int }} kcal</small></div>
+      </div>
+      <div class="text-end">
+        {% if not cal.over %}
+          <div class="fs-5 fw-bold text-success lh-1">{{ cal.remaining|round|int }}</div>
+          <small class="text-muted">kcal restantes</small>
+        {% else %}
+          <div class="fs-5 fw-bold text-danger lh-1">+{{ (cal.remaining * -1)|round|int }}</div>
+          <small class="text-muted">kcal de más</small>
+        {% endif %}
       </div>
     </div>
-    <div class="d-flex justify-content-between" style="font-size:0.75rem">
-      <span class="text-muted">{{ m.pct }}%</span>
-      {% if not m.over %}
-        <span class="text-success">+{{ m.remaining }} {{ m.unit }} restantes</span>
-      {% else %}
-        <span class="text-danger">{{ (m.remaining * -1) | round(1) }} {{ m.unit }} de más</span>
-      {% endif %}
+    <div class="progress mt-2" style="height:12px">
+      <div class="progress-bar bg-{{ cal.bar_color }}" style="width: {{ cal.pct }}%"></div>
     </div>
+    <div class="row g-2 mt-2">
+      {% for m in macros[1:] %}
+      <div class="col-4">
+        <div class="d-flex justify-content-between" style="font-size:.75rem">
+          <span>{{ m.emoji }} {{ m.label[:5] if m.key == 'carbs' else m.label }}</span>
+        </div>
+        <div class="progress" style="height:6px">
+          <div class="progress-bar bg-{{ m.bar_color }}" style="width: {{ m.pct }}%"></div>
+        </div>
+        <div style="font-size:.72rem" class="text-muted">{{ m.current|n }}/{{ m.goal|n }}g</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<a href="{{ url_for('meal_plan') }}" class="card shadow-sm mb-3 text-decoration-none">
+  <div class="card-body py-2 px-3 d-flex align-items-center gap-2 text-dark">
+    <i class="bi bi-journal-check text-success fs-4"></i>
+    <div class="small flex-grow-1"><strong>¿Qué como hoy?</strong><br>
+      <span class="text-muted">Plan con cantidades exactas para cumplir tus macros</span></div>
+    <i class="bi bi-chevron-right text-muted"></i>
+  </div>
+</a>
+
+<!-- Training card -->
+{% if routine %}
+<div class="card shadow-sm mb-3">
+  <div class="card-body py-2 px-3 d-flex align-items-center gap-2">
+    <i class="bi bi-lightning-charge-fill text-primary fs-4"></i>
+    <div class="small flex-grow-1">
+      {% if trained_today %}
+        <strong>✅ Hoy ya has entrenado</strong>
+      {% else %}
+        <strong>Próximo entreno: {{ routine.days[day_idx].name }}</strong>
+      {% endif %}
+      <br><span class="text-muted">{{ week_count }}/{{ routine.days_per_week }} sesiones esta semana</span>
+    </div>
+    {% if not trained_today %}
+    <a href="{{ url_for('workout_session', day_idx=day_idx) }}" class="btn btn-primary btn-sm">Empezar</a>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Meals by type -->
+{% for block in meal_blocks %}
+<div class="card shadow-sm mb-2">
+  <div class="card-body py-2 px-3">
+    <div class="d-flex justify-content-between align-items-center">
+      <div class="fw-semibold">{{ block.emoji }} {{ block.label }}
+        {% if block.entries %}<small class="text-kcal ms-1">{{ block.totals.calories|round|int }} kcal</small>{% endif %}
+      </div>
+      <a href="{{ url_for('log_meal', comida=block.key) }}"
+         class="btn btn-sm {{ 'btn-success' if not block.entries and block.key == suggested_meal else 'btn-outline-success' }} py-0 px-2">
+        <i class="bi bi-plus-lg"></i>{% if not block.entries %} Añadir{% endif %}
+      </a>
+    </div>
+    {% for meal in block.entries %}
+    <div class="d-flex justify-content-between align-items-center border-top mt-2 pt-2">
+      <div class="lh-sm">
+        <div class="small fw-semibold">{{ meal.food_name }}
+          {% if meal.source == 'foto' %}<i class="bi bi-camera text-muted" title="Por foto"></i>{% endif %}
+        </div>
+        <small class="text-muted" style="font-size:.72rem">{{ meal.grams|n }}g · P{{ meal.protein|n }} C{{ meal.carbs|n }} G{{ meal.fat|n }}</small>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <span class="small fw-bold text-kcal">{{ meal.calories|round|int }}</span>
+        <form method="POST" action="{{ url_for('delete_meal', meal_id=meal.id) }}"
+              onsubmit="return confirm('¿Eliminar {{ meal.food_name }}?')">
+          <button type="submit" class="btn btn-link btn-sm text-danger p-0"><i class="bi bi-x-circle"></i></button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
   </div>
 </div>
 {% endfor %}
 
-<!-- Meals list -->
-<div class="d-flex justify-content-between align-items-center mt-4 mb-2">
-  <p class="fw-bold mb-0" style="font-size:0.95rem">Comidas de hoy</p>
-  <a href="{{ url_for('log_meal') }}" class="btn btn-success btn-sm px-3">
-    <i class="bi bi-plus"></i> Añadir
-  </a>
-</div>
+{% endblock %}
 
-{% if meals %}
-  {% for meal in meals %}
-  <div class="card shadow-sm mb-2">
-    <div class="card-body py-2 px-3">
-      <div class="d-flex justify-content-between align-items-start">
-        <div>
-          <div class="fw-semibold lh-sm">{{ meal.food_name }}</div>
-          <small class="text-muted">🕐 {{ meal.time }} · {{ meal.grams | int }}g</small>
-        </div>
-        <div class="text-end">
-          <div class="fw-bold" style="color:#e67e22">{{ meal.calories }} kcal</div>
-          <small class="text-muted">P:{{ meal.protein }}g C:{{ meal.carbs }}g G:{{ meal.fat }}g</small>
-        </div>
-      </div>
-      <form method="POST" action="{{ url_for('delete_meal', meal_id=meal.id) }}"
-            onsubmit="return confirm('¿Eliminar esta comida?')">
-        <button type="submit" class="btn btn-link btn-sm text-danger p-0 mt-1" style="font-size:0.75rem">
-          <i class="bi bi-trash3"></i> Eliminar
-        </button>
-      </form>
-    </div>
-  </div>
-  {% endfor %}
-{% else %}
-  <div class="card shadow-sm">
-    <div class="card-body text-center py-5 text-muted">
-      <i class="bi bi-egg-fried" style="font-size:2.5rem;opacity:.4"></i>
-      <p class="mt-2 mb-2">Sin comidas registradas hoy</p>
-      <a href="{{ url_for('log_meal') }}" class="btn btn-success btn-sm px-4">
-        <i class="bi bi-plus-circle"></i> Registrar primera comida
-      </a>
-    </div>
-  </div>
-{% endif %}
-
+{% block scripts %}
+<script>
+  // Show the banner only where push is supported and not yet granted on this device
+  if ('Notification' in window && 'PushManager' in window && Notification.permission !== 'granted') {
+    const b = document.getElementById('push-banner');
+    if (b) b.classList.remove('d-none');
+  }
+</script>
 {% endblock %}
