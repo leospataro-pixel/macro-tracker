@@ -15,6 +15,7 @@ from flask import (Flask, abort, flash, g, jsonify, redirect, render_template,
                    request, send_from_directory, session, url_for)
 
 import ai
+import exercises as exlib
 import push
 import storage
 from nutrition import (ACTIVITY, DEFAULT_REMINDERS, MACRO_KEYS, MEAL_EMOJI, MEAL_KEYS,
@@ -52,6 +53,9 @@ def to_float(value, default=None):
         return float(str(value).replace(",", "."))
     except (TypeError, ValueError):
         return default
+
+
+app.add_template_filter(exlib.slugify, "slug")
 
 
 @app.template_filter("n")
@@ -144,6 +148,31 @@ def next_training_day(user: dict, workouts: list):
     return routine, idx
 
 
+def day_levels(day: dict) -> dict:
+    """Muscle intensity for a routine day: primary 3, secondary 1 (max across exercises)."""
+    lv = {}
+    for e in day["exercises"]:
+        for m, v in exlib.exercise_levels(exlib.get(e["name"])).items():
+            lv[m] = max(lv.get(m, 0), v)
+    return lv
+
+
+def weekly_counts(workouts: list, weeks: int = 8) -> list:
+    """Strength + cardio sessions per ISO week (Mon-Sun), oldest first."""
+    today = storage.now().date()
+    monday = today - timedelta(days=today.weekday())
+    out = []
+    for i in range(weeks - 1, -1, -1):
+        start = monday - timedelta(weeks=i)
+        end = start + timedelta(days=6)
+        s, e = start.isoformat(), end.isoformat()
+        out.append({"label": start.strftime("%d/%m"),
+                    "fuerza": sum(1 for w in workouts if s <= w["date"] <= e and w["type"] == "fuerza"),
+                    "cardio": sum(1 for w in workouts if s <= w["date"] <= e and w["type"] == "cardio"),
+                    "current": i == 0})
+    return out
+
+
 def week_workouts(workouts: list) -> int:
     since = (storage.now() - timedelta(days=6)).strftime("%Y-%m-%d")
     return len({w["date"] for w in workouts if w["date"] >= since and w["type"] == "fuerza"})
@@ -174,7 +203,7 @@ def load_profile():
 
 @app.context_processor
 def inject_globals():
-    return {"current_user": g.get("user"), "MEAL_LABELS": MEAL_LABELS,
+    return {"current_user": g.get("user"), "MEAL_LABELS": MEAL_LABELS, "MUSCLES": exlib.MUSCLES,
             "MEAL_EMOJI": MEAL_EMOJI, "GOALS": GOALS, "LEVELS": LEVELS}
 
 
@@ -392,8 +421,9 @@ def index():
     workouts = workouts_for(user["id"])
     routine, day_idx = next_training_day(user, workouts)
     trained_today = any(w["date"] == today for w in workouts)
+    next_levels = day_levels(routine["days"][day_idx]) if routine else {}
     return render_template(
-        "index.html", today=today, macros=macro_progress(totals, user["targets"]),
+        "index.html", next_levels=next_levels, today=today, macros=macro_progress(totals, user["targets"]),
         meal_blocks=meal_blocks, routine=routine, day_idx=day_idx,
         trained_today=trained_today, week_count=week_workouts(workouts),
         suggested_meal=meal_for_hour(storage.now().hour),
@@ -693,8 +723,15 @@ def training():
     workouts = workouts_for(user["id"])
     routine, day_idx = next_training_day(user, workouts)
     today = storage.today()
+    since = (storage.now() - timedelta(days=6)).strftime("%Y-%m-%d")
+    load = exlib.muscle_load([w for w in workouts if w["date"] >= since])
+    trained = sorted(((exlib.MUSCLES[m], v) for m, v in load.items() if v > 0),
+                     key=lambda x: -x[1])
     return render_template(
         "training.html", routine=routine, day_idx=day_idx, workouts=workouts[:15],
+        week_levels=exlib.load_levels(load), trained=trained,
+        weekly=weekly_counts(workouts),
+        next_levels=day_levels(routine["days"][day_idx]) if routine else {},
         week_count=week_workouts(workouts), trained_today=any(w["date"] == today for w in workouts),
         cardio_types=list(CARDIO_MET))
 
@@ -763,8 +800,41 @@ def workout_session(day_idx):
         flash(f"💪 ¡{day['name']} completado! {len(exercises)} ejercicios.", "success")
         return redirect(url_for("training"))
 
+    infos = [exlib.get(e["name"]) for e in day["exercises"]]
     return render_template("workout.html", routine=routine, day=day, day_idx=day_idx,
+                           infos=infos, levels=[exlib.exercise_levels(i) for i in infos],
+                           day_levels=day_levels(day),
                            last=last_sets_by_exercise(workouts_for(user["id"])))
+
+
+@app.route("/entreno/ejercicios")
+def exercise_library():
+    group = request.args.get("grupo", "")
+    muscles = exlib.MUSCLE_GROUPS.get(group)
+    items = []
+    for name in sorted(exlib.EXERCISES):
+        info = exlib.get(name)
+        if muscles and not set(info["primary"]) & set(muscles):
+            continue
+        items.append({**info, "levels": exlib.exercise_levels(info)})
+    return render_template("exercises.html", items=items, groups=list(exlib.MUSCLE_GROUPS),
+                           group=group)
+
+
+@app.route("/entreno/ejercicio/<slug>")
+def exercise_detail(slug):
+    name = exlib.BY_SLUG.get(slug)
+    if not name:
+        abort(404)
+    info = exlib.get(name)
+    history = []
+    for w in workouts_for(g.user["id"]):
+        for e in w.get("exercises", []):
+            if e["name"] == name:
+                best = max(e["sets"], key=lambda s: (s["kg"], s["reps"]))
+                history.append({"date": w["date"], "sets": e["sets"], "best": best})
+    return render_template("exercise.html", info=info, levels=exlib.exercise_levels(info),
+                           history=history[:10])
 
 
 @app.route("/entreno/cardio", methods=["POST"])
