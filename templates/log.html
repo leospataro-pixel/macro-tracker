@@ -124,7 +124,7 @@
                   data-carbs="{{ food.carbs }}" data-fat="{{ food.fat }}"
                   data-unit="{{ food.unit_g or '' }}" data-unitname="{{ food.unit_name or '' }}"
                   data-name="{{ food.name | lower }}">
-            {{ food.name }} — {{ food.calories|n }} kcal/100g
+            {{ "⚠️ " if food.warn }}{{ food.name }} — {{ food.calories|n }} kcal/100g
           </option>
           {% endfor %}
         </select>

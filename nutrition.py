@@ -2,6 +2,8 @@
 
 import hashlib
 
+import diet
+
 MEAL_TYPES = [
     # key,        label,          emoji, share of daily macros, default reminder
     ("desayuno", "Desayuno",      "🍳", 0.25, "08:30"),
@@ -57,66 +59,17 @@ def calc_targets(sex: str, age: float, height: float, weight: float,
 
 
 # ── Meal plan ─────────────────────────────────────────────────────────────────
-# Each option: protein source, carb source, fat source (optional) whose grams
-# are solved to hit the target, plus fixed items (veg/fruit) with set grams.
-
-PLAN_TEMPLATES = {
-    "desayuno": [
-        {"name": "Porridge proteico", "p": "Proteína en polvo (whey)", "c": "Avena (cruda)",
-         "f": "Crema de cacahuete", "fixed": [("Plátano", 120)]},
-        {"name": "Tostadas con pavo y aguacate", "p": "Pechuga de pavo (fiambre)",
-         "c": "Pan integral", "f": "Aguacate", "fixed": [("Tomate", 60)]},
-        {"name": "Tortilla con tostada y naranja", "p": "Claras de huevo", "c": "Pan integral",
-         "f": "Huevo entero", "fixed": [("Naranja", 150)]},
-        {"name": "Queso batido con avena y frutos rojos", "p": "Queso fresco batido 0%",
-         "c": "Avena (cruda)", "f": "Nueces", "fixed": [("Frutos rojos", 100)]},
-    ],
-    "almuerzo": [
-        {"name": "Queso batido con plátano y almendras", "p": "Queso fresco batido 0%",
-         "c": "Plátano", "f": "Almendras", "fixed": []},
-        {"name": "Tortitas de arroz con pavo", "p": "Pechuga de pavo (fiambre)",
-         "c": "Tortitas de arroz", "f": None, "fixed": []},
-        {"name": "Batido de proteína con manzana", "p": "Proteína en polvo (whey)",
-         "c": "Manzana", "f": "Nueces", "fixed": []},
-        {"name": "Bocadillo de jamón", "p": "Jamón serrano", "c": "Pan integral",
-         "f": None, "fixed": [("Tomate", 40)]},
-    ],
-    "comida": [
-        {"name": "Pollo con arroz y brócoli", "p": "Pechuga de pollo (cocida)",
-         "c": "Arroz blanco (cocido)", "f": "Aceite de oliva", "fixed": [("Brócoli (cocido)", 150)]},
-        {"name": "Lentejas con ternera", "p": "Ternera (carne magra)", "c": "Lentejas (cocidas)",
-         "f": "Aceite de oliva", "fixed": [("Tomate", 80)]},
-        {"name": "Salmón con patata y ensalada", "p": "Salmón (crudo)", "c": "Patata (hervida)",
-         "f": "Aceite de oliva", "fixed": [("Ensalada mixta", 150)]},
-        {"name": "Pasta con atún y tomate", "p": "Atún en agua (escurrido)", "c": "Pasta (cocida)",
-         "f": "Aceite de oliva", "fixed": [("Tomate", 100)]},
-        {"name": "Garbanzos con pollo y espinacas", "p": "Pechuga de pollo (cocida)",
-         "c": "Garbanzos (cocidos)", "f": "Aceite de oliva", "fixed": [("Espinacas (crudas)", 80)]},
-    ],
-    "merienda": [
-        {"name": "Yogur con fruta y nueces", "p": "Queso fresco batido 0%", "c": "Manzana",
-         "f": "Nueces", "fixed": []},
-        {"name": "Tostada con pavo", "p": "Pechuga de pavo (fiambre)", "c": "Pan integral",
-         "f": "Aceite de oliva", "fixed": []},
-        {"name": "Batido de proteína con plátano", "p": "Proteína en polvo (whey)",
-         "c": "Plátano", "f": "Crema de cacahuete", "fixed": []},
-        {"name": "Tortitas con crema de cacahuete", "p": "Queso fresco batido 0%",
-         "c": "Tortitas de arroz", "f": "Crema de cacahuete", "fixed": []},
-    ],
-    "cena": [
-        {"name": "Merluza con boniato y ensalada", "p": "Merluza (cocida)", "c": "Boniato (asado)",
-         "f": "Aceite de oliva", "fixed": [("Ensalada mixta", 150)]},
-        {"name": "Tortilla de espinacas con pan", "p": "Claras de huevo", "c": "Pan integral",
-         "f": "Huevo entero", "fixed": [("Espinacas (crudas)", 100)]},
-        {"name": "Wrap de pollo y aguacate", "p": "Pechuga de pollo (cocida)",
-         "c": "Tortilla de trigo (wrap)", "f": "Aguacate", "fixed": [("Ensalada mixta", 80)]},
-        {"name": "Salmón con quinoa y brócoli", "p": "Salmón (crudo)", "c": "Quinoa (cocida)",
-         "f": None, "fixed": [("Brócoli (cocido)", 150)]},
-    ],
-}
+# Each meal = one food per role (protein / carbs / fat, plus fixed fruit or veg)
+# picked from diet.POOLS according to the person's health conditions and likes.
+# Grams are solved so the meal hits its share of the remaining macros.
 
 MAX_GRAMS = {"Aceite de oliva": 30, "Crema de cacahuete": 40, "Almendras": 40,
-             "Nueces": 40, "Proteína en polvo (whey)": 60, "Huevo entero": 180}
+             "Nueces": 40, "Proteína en polvo (whey)": 60, "Proteína vegetal en polvo": 60,
+             "Huevo entero": 180, "Aguacate": 120, "Pan integral": 150, "Pan sin gluten": 150,
+             "Tortitas de arroz": 60, "Avena (cruda)": 120, "Avena sin gluten (cruda)": 120,
+             "Yogur de soja natural": 250, "Yogur natural": 250, "Queso fresco batido 0%": 350,
+             "Edamame": 200, "Huevo entero": 180}
+SOLVED = ("protein", "carbs", "fat")
 
 
 def macros_for_grams(food: dict, grams: float) -> dict:
@@ -132,63 +85,88 @@ def sum_macros(entries: list) -> dict:
     return {k: round(v, 1) for k, v in total.items()}
 
 
-def _solve_option(option: dict, target: dict, foods_by_name: dict):
-    """Grams for p/c/f foods so the meal hits protein, carbs and fat of target."""
-    try:
-        fixed = [(foods_by_name[n], g) for n, g in option["fixed"]]
-        slots = [("protein", foods_by_name[option["p"]]),
-                 ("carbs", foods_by_name[option["c"]])]
-        if option.get("f"):
-            slots.append(("fat", foods_by_name[option["f"]]))
-    except KeyError:
-        return None  # a food was deleted from the database
+def short_name(name: str) -> str:
+    return name.split(" (")[0]
 
-    base = sum_macros([macros_for_grams(f, g) for f, g in fixed])
+
+def choose_foods(meal: str, prefs: dict, available: set, seed: str, variant: int,
+                 overrides: dict, used: set) -> tuple[dict, dict]:
+    """One food per role. Returns (picks, alternatives)."""
+    h = int(hashlib.md5(f"{seed}-{meal}".encode()).hexdigest(), 16)
+    likes = set(prefs.get("likes", []))
+    picks, alts = {}, {}
+    for role in diet.POOLS[diet.MEAL_POOL[meal]]:
+        cands = diet.candidates(meal, role, prefs, available)
+        if not cands:
+            continue
+        choice = overrides.get(role)
+        if choice not in cands:
+            liked = [c for c in cands if c in likes]
+            base = liked or cands
+            k = (h + variant + len(role)) % len(base)
+            rotated = base[k:] + base[:k]
+            fresh = [c for c in rotated if c not in used] or rotated
+            choice = fresh[0]
+        picks[role] = choice
+        alts[role] = [c for c in cands if c != choice]
+    return picks, alts
+
+
+def solve_meal(picks: dict, target: dict, foods_by_name: dict) -> list:
+    """Grams for protein/carbs/fat foods so the meal hits the target macros."""
+    fixed = [(role, foods_by_name[n], diet.FIXED_GRAMS[role])
+             for role, n in picks.items() if role in diet.FIXED_GRAMS]
+    slots = [(role, foods_by_name[picks[role]]) for role in SOLVED if role in picks]
+
+    base = sum_macros([macros_for_grams(f, g) for _, f, g in fixed])
     grams = [0.0] * len(slots)
     for _ in range(25):  # Gauss-Seidel: each food covers "its" macro
         for i, (macro, food) in enumerate(slots):
             other = base[macro] + sum(
                 slots[j][1][macro] * grams[j] / 100 for j in range(len(slots)) if j != i)
-            need = target[macro] - other
             per_g = food[macro] / 100
-            g = need / per_g if per_g > 0 else 0
+            g = (target[macro] - other) / per_g if per_g > 0 else 0
             grams[i] = min(max(g, 0), MAX_GRAMS.get(food["name"], 400))
 
-    items = [{"food": f, "grams": g} for f, g in fixed]
-    items += [{"food": slots[i][1], "grams": grams[i]} for i in range(len(slots))]
+    items = [(role, f, g) for role, f, g in fixed]
+    items += [(slots[i][0], slots[i][1], grams[i]) for i in range(len(slots))]
     out = []
-    for it in items:
-        g = round(it["grams"] / 5) * 5
+    for role, food, g in items:
+        g = round(g / 5) * 5
         if g < 5:
             continue
-        food = it["food"]
-        entry = {"food_id": food["id"], "food_name": food["name"], "grams": g,
+        entry = {"role": role, "food_id": food["id"], "food_name": food["name"], "grams": g,
                  **macros_for_grams(food, g)}
         if food.get("unit_g"):
             entry["units"] = round(g / food["unit_g"], 1)
             entry["unit_name"] = food.get("unit_name", "ud")
         out.append(entry)
-    return out
+    order = ["protein", "carbs", "veg", "fruit", "fat"]
+    return sorted(out, key=lambda e: order.index(e["role"]))
 
 
-def _pick(meal_key: str, seed: str, variant: int) -> list:
-    options = PLAN_TEMPLATES[meal_key]
-    h = int(hashlib.md5(f"{seed}-{meal_key}".encode()).hexdigest(), 16)
-    start = (h + variant) % len(options)
-    return options[start:] + options[:start]
+def meal_name(picks: dict) -> str:
+    parts = [short_name(picks[r]) for r in ("protein", "carbs") if r in picks]
+    extra = [short_name(picks[r]).lower() for r in ("veg", "fruit") if r in picks]
+    name = " con ".join([parts[0], parts[1].lower()]) if len(parts) == 2 else "".join(parts)
+    return name + (" y " + extra[0] if extra else "")
 
 
-def build_day_plan(targets: dict, consumed_by_meal: dict, meals: list,
-                   foods: dict, seed: str, variant: int = 0) -> dict:
+def build_day_plan(targets: dict, consumed_by_meal: dict, meals: list, foods: dict,
+                   seed: str, variant: int = 0, prefs: dict | None = None,
+                   overrides: dict | None = None) -> dict:
     """Plan for the meals not logged yet today, sized to the remaining macros."""
+    prefs = prefs or {}
+    overrides = overrides or {}
     foods_by_name = {f["name"]: f for f in foods.values()}
+    available = set(foods_by_name)
     eaten = sum_macros([m for items in consumed_by_meal.values() for m in items])
     remaining = {k: max(targets[k] - eaten[k], 0) for k in MACRO_KEYS}
 
     pending = [m for m in meals if not consumed_by_meal.get(m)]
     share_total = sum(MEAL_SHARE[m] for m in pending) or 1
 
-    plan = []
+    plan, used = [], set()
     for m in meals:
         if consumed_by_meal.get(m):
             plan.append({"meal": m, "done": True, "entries": consumed_by_meal[m],
@@ -196,12 +174,14 @@ def build_day_plan(targets: dict, consumed_by_meal: dict, meals: list,
             continue
         share = MEAL_SHARE[m] / share_total
         target = {k: remaining[k] * share for k in MACRO_KEYS}
-        for option in _pick(m, seed, variant):
-            items = _solve_option(option, target, foods_by_name)
-            if items:
-                plan.append({"meal": m, "done": False, "name": option["name"],
-                             "entries": items, "target": {k: round(v) for k, v in target.items()},
-                             "totals": sum_macros(items)})
-                break
+        picks, alts = choose_foods(m, prefs, available, seed, variant,
+                                   overrides.get(m, {}), used)
+        if "protein" not in picks or "carbs" not in picks:
+            continue
+        used.add(picks["protein"])
+        entries = solve_meal(picks, target, foods_by_name)
+        plan.append({"meal": m, "done": False, "name": meal_name(picks), "entries": entries,
+                     "alternatives": alts, "target": {k: round(v) for k, v in target.items()},
+                     "totals": sum_macros(entries)})
     return {"meals": plan, "remaining": {k: round(v) for k, v in remaining.items()},
             "eaten": eaten}

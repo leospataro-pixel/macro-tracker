@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block content %}
+
+{% if new %}<div class="eyebrow">Paso 2 de 2</div>{% endif %}
+<p class="page-header mb-1">Salud y gustos</p>
+<p class="small text-muted">Con esto adapto el plan de comidas: nunca te propondré lo que no puedes o no quieres comer.</p>
+
+<form method="POST">
+
+  <!-- Health conditions -->
+  <div class="card mb-3">
+    <div class="card-body p-3">
+      <div class="eyebrow mb-2">¿Tienes alguna condición o dieta especial?</div>
+      <div class="d-flex flex-wrap">
+        {% for key, c in conditions.items() %}
+          <input type="checkbox" class="btn-check cond" name="conditions" value="{{ key }}" id="c_{{ key }}"
+                 data-tip="{{ c.tip }}" {{ 'checked' if key in user.get('conditions', []) }}>
+          <label class="chip" for="c_{{ key }}">{{ c.emoji }} {{ c.label }}</label>
+        {% endfor %}
+      </div>
+      <div id="cond-tips" class="small text-muted mt-1"></div>
+      <div class="small text-muted mt-2" style="font-size:.72rem">
+        Las recomendaciones son orientativas; sigue siempre las pautas de tu médico o nutricionista.
+      </div>
+    </div>
+  </div>
+
+  <!-- Groups not eaten -->
+  <div class="card mb-3">
+    <div class="card-body p-3">
+      <div class="eyebrow mb-2">¿Hay algo que no comes?</div>
+      <div class="d-flex flex-wrap">
+        {% for key, label in dislike_groups.items() %}
+          <input type="checkbox" class="btn-check" name="dislike_groups" value="{{ key }}" id="d_{{ key }}"
+                 {{ 'checked' if key in user.get('dislike_groups', []) }}>
+          <label class="chip chip-no" for="d_{{ key }}">{{ label }}</label>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Food likes / dislikes -->
+  <div class="card mb-3">
+    <div class="card-body p-3">
+      <div class="eyebrow mb-1">Tus alimentos</div>
+      <p class="small text-muted mb-2">Toca una vez <span class="text-success fw-semibold">👍 lo suelo comer</span>,
+        dos veces <span class="text-danger fw-semibold">👎 no me gusta</span>, tres para quitar.</p>
+      {% for gname, foods in groups.items() %}
+        <div class="small fw-semibold mt-2 mb-1">{{ gname }}</div>
+        <div class="d-flex flex-wrap">
+          {% for f in foods %}
+            <input type="hidden" name="f_{{ f.name }}" value="{{ f.state }}">
+            <button type="button" class="chip food-chip {{ f.state }}" data-name="{{ f.name }}"
+                    {% if f.health %}disabled title="{{ f.health }}"{% endif %}>
+              <span class="ic">{{ '👍' if f.state == 'like' else '👎' if f.state == 'dislike' else '' }}</span>{{ f.short }}
+              {% if f.health %}<small class="text-muted ms-1">· {{ f.health.split(' /')[0] }}</small>{% endif %}
+            </button>
+          {% endfor %}
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <button class="btn btn-success w-100 btn-lg mb-4">
+    <i class="bi bi-check2-circle"></i> {{ 'Guardar y empezar' if new else 'Guardar' }}
+  </button>
+</form>
+
+<style>
+  .btn-check:checked + .chip { background: rgba(197,248,42,.14); border-color: var(--accent); color: var(--accent); }
+  .btn-check:checked + .chip-no { background: rgba(255,93,93,.12); border-color: #ff6b6b; color: #ff8a8a; }
+  .food-chip.like { background: rgba(197,248,42,.14); border-color: var(--accent); color: var(--accent); }
+  .food-chip.dislike { background: rgba(255,93,93,.12); border-color: #ff6b6b; color: #ff8a8a; text-decoration: line-through; }
+  .food-chip:disabled { opacity: .45; text-decoration: line-through; }
+  .food-chip .ic:not(:empty) { margin-right: 2px; }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Tri-state food chips: none -> like -> dislike -> none
+  document.querySelectorAll('.food-chip').forEach(b => b.addEventListener('click', () => {
+    const input = document.querySelector(`input[name="f_${CSS.escape(b.dataset.name)}"]`);
+    const next = {'': 'like', like: 'dislike', dislike: ''}[input.value];
+    input.value = next;
+    b.classList.remove('like', 'dislike');
+    if (next) b.classList.add(next);
+    b.querySelector('.ic').textContent = next === 'like' ? '👍' : next === 'dislike' ? '👎' : '';
+  }));
+  // Show what each selected condition changes
+  const tips = document.getElementById('cond-tips');
+  function renderTips() {
+    tips.innerHTML = [...document.querySelectorAll('.cond:checked')]
+      .map(c => '• ' + c.dataset.tip).join('<br>');
+  }
+  document.querySelectorAll('.cond').forEach(c => c.addEventListener('change', renderTips));
+  renderTips();
+</script>
+{% endblock %}
