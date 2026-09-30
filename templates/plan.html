@@ -8,7 +8,7 @@
   </a>
 </div>
 
-<div class="card shadow-sm mb-3">
+<div class="card mb-3">
   <div class="card-body py-2 px-3">
     <div class="small text-muted mb-1">Te falta hoy para cumplir tus macros</div>
     <div class="row text-center g-0">
@@ -20,8 +20,19 @@
   </div>
 </div>
 
+<a href="{{ url_for('food_prefs') }}" class="d-block small text-decoration-none mb-3">
+  {% if adapted or adapted_groups %}
+    <span class="text-muted">Adaptado a:</span>
+    {% for c in adapted %}<span class="mchip mchip-primary">{{ c.emoji }} {{ c.label.split(' /')[0] }}</span>{% endfor %}
+    {% for d in adapted_groups %}<span class="mchip">Sin {{ d.split(' ', 1)[1]|lower }}</span>{% endfor %}
+    <i class="bi bi-pencil text-muted"></i>
+  {% else %}
+    <i class="bi bi-sliders"></i> Personaliza tus alimentos, alergias y condiciones de salud
+  {% endif %}
+</a>
+
 {% for m in plan.meals %}
-<div class="card shadow-sm mb-2 {{ 'opacity-75' if m.done }}">
+<div class="card mb-2 {{ 'opacity-75' if m.done }}" id="{{ m.meal }}">
   <div class="card-body py-2 px-3">
     <div class="d-flex justify-content-between align-items-center">
       <div class="fw-semibold">{{ MEAL_EMOJI[m.meal] }} {{ MEAL_LABELS[m.meal] }}</div>
@@ -35,11 +46,45 @@
       <div class="small text-muted mb-1">{{ m.name }}</div>
       <ul class="list-unstyled small mb-2">
         {% for it in m.entries %}
-        <li class="d-flex justify-content-between border-bottom py-1">
-          <span>{{ it.food_name }}</span>
-          <span class="fw-semibold">{{ it.grams|n }} g
-            {% if it.units %}<span class="text-muted fw-normal">(~{{ it.units|n }} {{ it.unit_name }}{{ "s" if it.units > 1 and not it.unit_name.endswith("s") }})</span>{% endif %}
-          </span>
+        {% set alts = m.alternatives.get(it.role, []) %}
+        <li class="border-bottom py-1">
+          <details>
+            <summary class="d-flex justify-content-between align-items-center gap-2" style="list-style:none">
+              <span class="lh-sm">
+                <span class="text-muted" style="font-size:.68rem">{{ role_labels[it.role] }}</span><br>
+                {{ it.food_name.split(' (')[0] }}
+                {% if alts %}<i class="bi bi-chevron-down text-muted" style="font-size:.7rem"></i>{% endif %}
+              </span>
+              <span class="d-flex align-items-center gap-2 text-nowrap">
+                <span class="fw-semibold text-end">{{ it.grams|n }} g
+                  {% if it.units %}<br><span class="text-muted fw-normal" style="font-size:.7rem">~{{ it.units|n }} {{ it.unit_name }}{{ "s" if it.units > 1 and not it.unit_name.endswith("s") }}</span>{% endif %}
+                </span>
+                {% if alts %}
+                <form method="POST" action="{{ url_for('swap_plan_food') }}" class="m-0">
+                  <input type="hidden" name="meal" value="{{ m.meal }}">
+                  <input type="hidden" name="role" value="{{ it.role }}">
+                  <input type="hidden" name="current" value="{{ it.food_name }}">
+                  <button class="btn btn-sm btn-outline-secondary py-1 px-2" title="Cambiar por otro"><i class="bi bi-arrow-repeat"></i></button>
+                </form>
+                {% endif %}
+              </span>
+            </summary>
+            {% if alts %}
+            <div class="pt-2">
+              <div class="text-muted mb-1" style="font-size:.7rem">Cambiar {{ role_labels[it.role]|lower }} por:</div>
+              <div class="d-flex flex-wrap">
+                {% for alt in alts[:10] %}
+                <form method="POST" action="{{ url_for('swap_plan_food') }}" class="m-0">
+                  <input type="hidden" name="meal" value="{{ m.meal }}">
+                  <input type="hidden" name="role" value="{{ it.role }}">
+                  <input type="hidden" name="food" value="{{ alt }}">
+                  <button class="chip">{{ alt.split(' (')[0] }}</button>
+                </form>
+                {% endfor %}
+              </div>
+            </div>
+            {% endif %}
+          </details>
         </li>
         {% endfor %}
       </ul>
@@ -47,7 +92,6 @@
         <small class="text-muted">P {{ m.totals.protein|n }} · C {{ m.totals.carbs|n }} · G {{ m.totals.fat|n }}</small>
         <form method="POST" action="{{ url_for('log_plan_meal') }}">
           <input type="hidden" name="meal" value="{{ m.meal }}">
-          <input type="hidden" name="v" value="{{ variant }}">
           <input type="hidden" name="items" value='{{ m.entries|tojson }}'>
           <button class="btn btn-success btn-sm"><i class="bi bi-check2"></i> Me lo he comido</button>
         </form>
@@ -58,8 +102,8 @@
 {% endfor %}
 
 <p class="small text-muted mt-3">
-  Las cantidades se recalculan con lo que ya has registrado hoy.
-  ¿Has comido otra cosa? <a href="{{ url_for('log_meal') }}">Regístrala</a> y el plan se ajusta.
+  Pulsa <i class="bi bi-arrow-repeat"></i> para cambiar un alimento por otro del mismo tipo, o toca su nombre para elegirlo tú.
+  Los gramos se recalculan solos.
 </p>
 
 {% endblock %}

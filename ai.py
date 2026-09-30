@@ -59,7 +59,7 @@ def is_configured() -> bool:
 
 
 def analyze_meal(image: bytes | None = None, media_type: str = "image/jpeg",
-                 description: str = "") -> dict:
+                 description: str = "", conditions: list | None = None) -> dict:
     if not is_configured():
         raise AIError("Falta configurar ANTHROPIC_API_KEY en el servidor.")
 
@@ -71,6 +71,9 @@ def analyze_meal(image: bytes | None = None, media_type: str = "image/jpeg",
     text = "Analiza esta comida y estima sus macros."
     if description:
         text += f"\nDetalles del usuario: {description}"
+    if conditions:
+        text += ("\nCondiciones de salud del usuario: " + ", ".join(conditions) +
+                 ". Si algún alimento no es adecuado para ellas, avísalo brevemente en notes.")
     content.append({"type": "text", "text": text})
 
     client = anthropic.Anthropic(timeout=90.0)

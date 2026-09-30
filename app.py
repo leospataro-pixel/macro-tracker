@@ -15,6 +15,7 @@ from flask import (Flask, abort, flash, g, jsonify, redirect, render_template,
                    request, send_from_directory, session, url_for)
 
 import ai
+import diet
 import exercises as exlib
 import stretches as stlib
 import push
@@ -66,6 +67,17 @@ def fmt_number(value):
         return f"{round(float(value), 1):g}"
     except (TypeError, ValueError):
         return value if value is not None else ""
+
+
+def auto_targets(user: dict) -> dict:
+    """Targets from body data + goal, adjusted for health conditions."""
+    base = calc_targets(user["sex"], user["age"], user["height"], user["weight"],
+                        user["activity"], user["goal"])
+    return {**base, **diet.adjust_targets(base, user.get("conditions", []))}
+
+
+def user_prefs(user: dict) -> dict:
+    return {k: user.get(k, []) for k in ("conditions", "dislike_groups", "likes", "dislikes")}
 
 
 def save_user(user: dict):
@@ -289,8 +301,7 @@ def new_profile():
                                    avatars=AVATARS, activity=ACTIVITY)
         first = not g.users
         user["id"] = new_id()
-        user["targets"] = calc_targets(user["sex"], user["age"], user["height"],
-                                       user["weight"], user["activity"], user["goal"])
+        user["targets"] = auto_targets(user)
         user["auto_targets"] = True
         user["meals"] = list(DEFAULT_MEALS)
         user["reminders"] = {m: DEFAULT_REMINDERS[m] for m in DEFAULT_MEALS}
@@ -303,7 +314,7 @@ def new_profile():
         session["uid"] = user["id"]
         flash(f"✓ Perfil de {user['name']} creado. Objetivo: "
               f"{user['targets']['calories']} kcal/día.", "success")
-        return redirect(url_for("index"))
+        return redirect(url_for("food_prefs", nuevo=1))
     return render_template("profile_form.html", user={}, new=True,
                            avatars=AVATARS, activity=ACTIVITY)
 
@@ -319,8 +330,7 @@ def profile():
             return redirect(url_for("profile"))
         if updated["weight"] != user["weight"]:
             log_weight(updated, updated["weight"])
-        updated["targets"] = calc_targets(updated["sex"], updated["age"], updated["height"],
-                                          updated["weight"], updated["activity"], updated["goal"])
+        updated["targets"] = auto_targets(updated)
         updated["auto_targets"] = True
         save_user(updated)
         flash(f"✓ Perfil guardado. Nuevo objetivo: {updated['targets']['calories']} kcal/día.",
@@ -348,11 +358,43 @@ def add_weight():
     user = g.user
     log_weight(user, kg)
     if user.get("auto_targets", True):
-        user["targets"] = calc_targets(user["sex"], user["age"], user["height"],
-                                       kg, user["activity"], user["goal"])
+        user["targets"] = auto_targets(user)
     save_user(user)
     flash(f"✓ Peso registrado: {kg:g} kg.", "success")
     return redirect(request.referrer or url_for("profile"))
+
+
+@app.route("/perfil/alimentacion", methods=["GET", "POST"])
+def food_prefs():
+    user = g.user
+    available = {f["name"] for f in load_foods().values()}
+    if request.method == "POST":
+        user["conditions"] = [c for c in request.form.getlist("conditions") if c in diet.CONDITIONS]
+        user["dislike_groups"] = [d for d in request.form.getlist("dislike_groups")
+                                  if d in diet.DISLIKE_GROUPS]
+        user["likes"], user["dislikes"] = [], []
+        for name in available:
+            v = request.form.get("f_" + name)
+            if v == "like":
+                user["likes"].append(name)
+            elif v == "dislike":
+                user["dislikes"].append(name)
+        if user.get("auto_targets", True):
+            user["targets"] = auto_targets(user)
+        user.pop("plan_choices", None)
+        save_user(user)
+        flash("✓ Salud y preferencias guardadas. Tu plan de comidas ya las tiene en cuenta.",
+              "success")
+        return redirect(url_for("index") if request.args.get("nuevo") else url_for("food_prefs"))
+    prefs = user_prefs(user)
+    groups = {g_name: [{"name": n, "short": n.split(" (")[0],
+                        "state": "like" if n in prefs["likes"] else
+                                 "dislike" if n in prefs["dislikes"] else "",
+                        "health": diet.health_blocked(n, prefs)} for n in names]
+              for g_name, names in diet.pref_foods(available).items()}
+    return render_template("food_prefs.html", user=user, conditions=diet.CONDITIONS,
+                           dislike_groups=diet.DISLIKE_GROUPS, groups=groups,
+                           new=bool(request.args.get("nuevo")))
 
 
 @app.route("/perfiles/eliminar/<uid>", methods=["POST"])
@@ -465,8 +507,11 @@ def log_meal():
         meal = meal_for_hour(storage.now().hour)
     yesterday = (storage.now() - timedelta(days=1)).strftime("%Y-%m-%d")
     repeat_items = [m for m in user_meals(user["id"], yesterday) if m.get("meal") == meal]
+    prefs = user_prefs(user)
+    food_list = [{**f, "warn": diet.health_blocked(f["name"], prefs)}
+                 for f in sorted(foods.values(), key=lambda f: f["name"])]
     return render_template(
-        "log.html", foods=sorted(foods.values(), key=lambda f: f["name"]),
+        "log.html", foods=food_list,
         meal=meal, meal_types=MEAL_TYPES, frequent=frequent_foods(user["id"], meal),
         repeat_items=repeat_items, repeat_totals=sum_macros(repeat_items),
         ai_ready=ai.is_configured(), tab=request.args.get("tab", "foto"))
@@ -498,7 +543,9 @@ def analyze_photo():
     media_type = photo.mimetype if photo and photo.mimetype in (
         "image/jpeg", "image/png", "image/webp", "image/gif") else "image/jpeg"
     try:
-        return jsonify(ai.analyze_meal(image, media_type, description))
+        conditions = [diet.CONDITIONS[c]["label"] for c in g.user.get("conditions", [])
+                      if c in diet.CONDITIONS]
+        return jsonify(ai.analyze_meal(image, media_type, description, conditions))
     except ai.AIError as e:
         return jsonify(error=str(e)), 502
 
@@ -555,12 +602,57 @@ def delete_meal(meal_id):
 def meal_plan():
     user = g.user
     today = storage.today()
-    variant = int(to_float(request.args.get("v"), 0))
+    choices = plan_choices(user, request.args.get("v"))
+    variant = choices["variant"]
     grouped = by_meal(user_meals(user["id"], today))
     meals = [m for m in MEAL_KEYS if m in user.get("meals", DEFAULT_MEALS) or grouped.get(m)]
+    prefs = user_prefs(user)
     plan = build_day_plan(user["targets"], grouped, meals, load_foods(),
-                          seed=f"{user['id']}-{today}", variant=variant)
-    return render_template("plan.html", plan=plan, variant=variant, targets=user["targets"])
+                          seed=f"{user['id']}-{today}", variant=variant,
+                          prefs=prefs, overrides=choices["meals"])
+    adapted = [diet.CONDITIONS[c] for c in prefs["conditions"] if c in diet.CONDITIONS]
+    adapted_groups = [diet.DISLIKE_GROUPS[d] for d in prefs["dislike_groups"]
+                      if d in diet.DISLIKE_GROUPS]
+    return render_template("plan.html", plan=plan, variant=variant, targets=user["targets"],
+                           adapted=adapted, adapted_groups=adapted_groups,
+                           role_labels=diet.ROLE_LABELS)
+
+
+def plan_choices(user: dict, variant_arg=None) -> dict:
+    """Today's plan state: variant ('Otras opciones') and per-meal food swaps."""
+    today = storage.today()
+    state = user.get("plan_choices") or {}
+    if state.get("date") != today:
+        state = {"date": today, "variant": 0, "meals": {}}
+    if variant_arg is not None:
+        v = int(to_float(variant_arg, 0))
+        if v != state["variant"]:
+            state = {"date": today, "variant": v, "meals": {}}
+            user["plan_choices"] = state
+            save_user(user)
+    return state
+
+
+@app.route("/plan/cambiar", methods=["POST"])
+def swap_plan_food():
+    user = g.user
+    meal, role = request.form.get("meal", ""), request.form.get("role", "")
+    wanted = request.form.get("food", "")
+    if meal not in MEAL_KEYS or role not in diet.ROLE_LABELS:
+        abort(400)
+    state = plan_choices(user)
+    available = {f["name"] for f in load_foods().values()}
+    cands = diet.candidates(meal, role, user_prefs(user), available)
+    current = request.form.get("current", "")
+    if wanted not in cands:
+        # next candidate after the current one
+        i = cands.index(current) if current in cands else -1
+        wanted = cands[(i + 1) % len(cands)] if cands else None
+    if wanted:
+        state["meals"].setdefault(meal, {})[role] = wanted
+        user["plan_choices"] = state
+        save_user(user)
+    return redirect(url_for("meal_plan") + f"#{meal}")
 
 
 @app.route("/plan/registrar", methods=["POST"])
@@ -581,7 +673,7 @@ def log_plan_meal():
     if clean:
         add_entries(g.user["id"], meal, clean, source="plan")
         flash(f"✓ {MEAL_LABELS.get(meal, 'Comida')} del plan registrado.", "success")
-    return redirect(url_for("meal_plan", v=request.form.get("v", 0)))
+    return redirect(url_for("meal_plan"))
 
 
 # ── Foods database ────────────────────────────────────────────────────────────
@@ -642,8 +734,7 @@ def goals():
         flash("✓ Metas guardadas.", "success")
         return redirect(url_for("goals"))
 
-    suggested = calc_targets(user["sex"], user["age"], user["height"], user["weight"],
-                             user["activity"], user["goal"])
+    suggested = auto_targets(user)
     return render_template("goals.html", goals=user["targets"], suggested=suggested)
 
 
@@ -938,7 +1029,7 @@ def seed_foods():
     foods = load_foods()
     by_name = {f["name"]: f for f in foods.values()}
     added = 0
-    for name, cal, prot, carbs, fat, *unit in STARTER_FOODS:
+    for name, cal, prot, carbs, fat, *unit in STARTER_FOODS + diet.EXTRA_FOODS:
         food = by_name.get(name)
         if not food:
             fid = new_id()
